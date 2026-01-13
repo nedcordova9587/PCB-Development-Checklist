@@ -1,0 +1,3523 @@
+<!-- 
+================================================================================
+PCB DESIGN CHECKLIST SYSTEM - COMPLETE PROFESSIONAL VERSION
+================================================================================
+CURRENT VERSION: v4.1.3 (2025-12-15) - Fixed export flow, inline comment editing, PDF hyperlinks, and user management
+AUTHOR: Norman Emmanuel D. Cordova
+POSITION: PCB Designer; IPC-CID
+CERTIFICATION: CID-21101143673
+COPYRIGHT: © 2025 PCB Design Checklist System
+
+VERSION HISTORY SUMMARY:
+-----------------------
+v4.1.3 (2025-12-15): Fixed export flow (direct approach), inline comment editing, PDF hyperlink truncation, added item text to PDF images, export confirmations, user account management
+v4.1.2 (2025-12-15): Fixed risk score capping, cleared default user history, improved PDF status display
+v4.1.1 (2025-12-12): Fixed PDF/Excel export issues, added multi-sheet Excel, improved image handling
+v4.1.0 (2025-12-12): Complete implementation with all PCB checklist items
+v4.0.0 (2025-12-12): Added DFA checklist items
+v3.0.0 (2025-01-01): Original PCB Design Checklist v3 with tabs and basic export
+v2.0.4 (2025-07-14): Enhanced comment editing/deleting, optimized PDF image handling, hyperlink support
+v2.0.3 (2025-07-13): Optimized MERGED_CHECKLIST structure, fixed category management
+v1.0.0 (2025-05-10): Initial framework, basic structure, navigation
+
+ENTERPRISE ACCESS:
+-----------------
+1. Click version indicator in footer (v4.1.3)
+2. Use "Version History" in sidebar Settings
+3. Export as text file from version modal
+
+DEVELOPMENT PHILOSOPHY:
+-----------------------
+• Progressive enhancement with backward compatibility
+• Enterprise-grade usability with design validation
+• Professional documentation and version tracking
+================================================================================
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCB Design Checklist - Professional System v4.1.3</title>
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Complete CSS from provided file with enhancements */
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --critical-color: #c0392b;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+            --info-color: #17a2b8;
+            --expert-color: #8e44ad;
+            --ipc-color: #e67e22;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+        }
+        
+        /* Tooltip Styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip-container .tooltip-text {
+            visibility: hidden;
+            position: absolute;
+            z-index: 1000;
+            width: 300px;
+            background-color: var(--dark-color);
+            color: white;
+            text-align: left;
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            pointer-events: none;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: normal;
+        }
+        
+        .tooltip-container .tooltip-text::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: var(--dark-color) transparent transparent transparent;
+        }
+        
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Help Button */
+        .help-btn {
+            background: none;
+            border: none;
+            color: var(--info-color);
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            margin-left: 5px;
+        }
+        
+        .help-btn:hover {
+            background-color: rgba(23, 162, 184, 0.1);
+            color: var(--info-color);
+            transform: scale(1.1);
+        }
+        
+        /* Top Navigation Bar */
+        .top-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px 8px 0 0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .nav-left h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+        
+        .nav-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        
+        .user-info:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #777;
+        }
+        
+        .close-modal:hover {
+            color: var(--danger-color);
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        
+        .sidebar-section {
+            margin-bottom: 25px;
+        }
+        
+        .sidebar-section h3 {
+            font-size: 1rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .sidebar-menu {
+            list-style: none;
+        }
+        
+        .sidebar-menu li {
+            margin-bottom: 10px;
+        }
+        
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            text-decoration: none;
+            color: #555;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .sidebar-menu a:hover, .sidebar-menu a.active {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: var(--secondary-color);
+        }
+        
+        .sidebar-menu i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* Project Info Panel */
+        .project-info-panel {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .project-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: var(--dark-color);
+        }
+        
+        input, select, textarea {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--secondary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        /* Checklist Container */
+        .checklist-container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        /* Dashboard */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid var(--secondary-color);
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .stat-card.critical {
+            border-left-color: var(--critical-color);
+        }
+        
+        .stat-card.warning {
+            border-left-color: var(--warning-color);
+        }
+        
+        .stat-card.success {
+            border-left-color: var(--success-color);
+        }
+        
+        .stat-card.info {
+            border-left-color: var(--info-color);
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        /* Filters Section */
+        .filters-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: var(--dark-color);
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 70%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+        
+        .search-box input {
+            padding-left: 40px;
+            width: 100%;
+        }
+        
+        /* Category Styling */
+        .category {
+            margin-bottom: 25px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .category-header {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .category-header:hover {
+            background-color: #2c3e50;
+        }
+        
+        .category-stats {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        .category-content {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            position: relative;
+        }
+        
+        /* Checklist Item Styling */
+        .checklist-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 20px;
+            align-items: start;
+            padding: 18px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+            border-left: 4px solid #ddd;
+            position: relative;
+        }
+        
+        .checklist-item:last-child {
+            border-bottom: none;
+        }
+        
+        .checklist-item.critical {
+            border-left-color: var(--critical-color);
+        }
+        
+        .checklist-item.high {
+            border-left-color: var(--danger-color);
+        }
+        
+        .checklist-item.medium {
+            border-left-color: var(--warning-color);
+        }
+        
+        .checklist-item.low {
+            border-left-color: var(--secondary-color);
+        }
+        
+        .checklist-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .item-content {
+            position: relative;
+        }
+        
+        .item-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .item-text {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            flex-grow: 1;
+        }
+        
+        .criticality-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            margin-left: 10px;
+            white-space: nowrap;
+        }
+        
+        .criticality-critical {
+            background-color: rgba(192, 57, 43, 0.1);
+            color: var(--critical-color);
+        }
+        
+        .criticality-high {
+            background-color: rgba(231, 76, 60, 0.1);
+            color: var(--danger-color);
+        }
+        
+        .criticality-medium {
+            background-color: rgba(243, 156, 18, 0.1);
+            color: var(--warning-color);
+        }
+        
+        .criticality-low {
+            background-color: rgba(52, 152, 219, 0.1);
+            color: var(--secondary-color);
+        }
+        
+        .item-meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        
+        .item-tag {
+            font-size: 0.75rem;
+            background-color: #e9ecef;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: #666;
+        }
+        
+        .item-reference {
+            font-size: 0.8rem;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Status Options with Icons */
+        .status-options {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .status-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            min-width: 70px;
+        }
+        
+        .status-option:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .status-option.selected-yes {
+            background-color: rgba(39, 174, 96, 0.1);
+            color: var(--success-color);
+        }
+        
+        .status-option.selected-no {
+            background-color: rgba(231, 76, 60, 0.1);
+            color: var(--danger-color);
+        }
+        
+        .status-option.selected-na {
+            background-color: rgba(149, 165, 166, 0.1);
+            color: #7f8c8d;
+        }
+        
+        .status-icon {
+            font-size: 1.2rem;
+        }
+        
+        .status-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        /* Comments Section with inline editing */
+        .item-comments {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #eee;
+        }
+        
+        .comment-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .comment-form input {
+            flex-grow: 1;
+        }
+        
+        .add-comment-icon-btn {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+        }
+        
+        .add-comment-icon-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .comments-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .comment {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            position: relative;
+        }
+        
+        .comment:hover .comment-actions {
+            opacity: 1;
+        }
+        
+        .comment-author {
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-right: 5px;
+        }
+        
+        .comment-time {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 3px;
+        }
+        
+        .comment-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .comment-action-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 2px 5px;
+            border-radius: 3px;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        
+        .comment-action-btn:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        .comment-edit-btn:hover {
+            color: var(--secondary-color);
+        }
+        
+        .comment-delete-btn:hover {
+            color: var(--danger-color);
+        }
+        
+        .comment-text a {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+        
+        .comment-text a:hover {
+            text-decoration: none;
+        }
+        
+        /* Inline comment edit form */
+        .comment-edit-form {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .comment-edit-input {
+            flex: 1;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .comment-edit-save-btn {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        .comment-edit-cancel-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        
+        /* Item Actions */
+        .item-actions {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        
+        .checklist-item:hover .item-actions {
+            opacity: 1;
+        }
+        
+        .item-action-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .item-action-btn:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        .edit-item:hover {
+            color: var(--secondary-color);
+        }
+        
+        .delete-item:hover {
+            color: var(--danger-color);
+        }
+        
+        /* Additional styles */
+        .junior-tip {
+            background-color: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            border-radius: 4px;
+        }
+        
+        .expert-tip {
+            background-color: #f3e5f5;
+            border-left: 4px solid var(--expert-color);
+            padding: 10px 15px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+            border-radius: 4px;
+        }
+        
+        .item-details {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid var(--info-color);
+        }
+        
+        /* Tabs Styling */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+            margin-right: 5px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .tab:hover {
+            background-color: #e9ecef;
+        }
+        
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: white;
+            background-color: var(--primary-color);
+            margin-top: 30px;
+            border-radius: 0 0 8px 8px;
+            position: relative;
+        }
+        
+        .version-indicator {
+            cursor: pointer;
+            padding: 3px 10px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.15);
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-weight: bold;
+            font-family: 'Consolas', monospace;
+            margin-left: 10px;
+            display: inline-block;
+        }
+        
+        .version-indicator:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+        }
+        
+        /* Progress Bar */
+        .progress-container {
+            background-color: #e9ecef;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 10px;
+            background: linear-gradient(90deg, var(--secondary-color), var(--success-color));
+            border-radius: 10px;
+            transition: width 0.5s ease-in-out;
+        }
+        
+        /* Completion Badge */
+        .completion-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            background-color: var(--success-color);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        /* Export Options */
+        .export-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .export-option {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .export-option:hover {
+            border-color: var(--secondary-color);
+            transform: translateY(-5px);
+        }
+        
+        .export-option i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--secondary-color);
+        }
+        
+        .export-option h3 {
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        /* Attachments Styles - Updated per instruction 3 */
+        .attachments-container {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #eee;
+        }
+        
+        .attachments-label {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .file-input-hidden {
+            display: none;
+        }
+        
+        .file-input-trigger {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .file-input-trigger:hover {
+            color: var(--secondary-color);
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .attachments-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: #f8f9fa;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+            font-size: 0.85rem;
+            max-width: 300px;
+        }
+        
+        .attachment-icon {
+            color: var(--secondary-color);
+        }
+        
+        .attachment-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .attachment-size {
+            color: #999;
+            font-size: 0.75rem;
+        }
+        
+        .attachment-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .attachment-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 2px 5px;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        
+        .attachment-btn:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+        
+        .attachment-btn.view:hover {
+            color: var(--secondary-color);
+        }
+        
+        .attachment-btn.delete:hover {
+            color: var(--danger-color);
+        }
+        
+        /* Version History Styles */
+        .version-modal-content {
+            max-width: 950px;
+            max-height: 85vh;
+            width: 95%;
+        }
+        
+        .version-history-container {
+            font-family: 'Segoe UI', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            background-color: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            overflow-y: auto;
+            max-height: 60vh;
+            border: 1px solid #e9ecef;
+        }
+        
+        .version-header-main {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .version-header-main h3 {
+            color: var(--primary-color);
+            margin-bottom: 5px;
+            font-size: 1.4rem;
+        }
+        
+        .current-version-badge {
+            background: linear-gradient(135deg, var(--secondary-color), #2980b9);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            box-shadow: 0 3px 6px rgba(52, 152, 219, 0.3);
+        }
+        
+        /* Login Modal Styles */
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .login-user-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 15px 0;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+        }
+        
+        .login-user-item {
+            padding: 10px 15px;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .login-user-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .login-user-item.selected {
+            background-color: rgba(52, 152, 219, 0.1);
+            border-left: 3px solid var(--secondary-color);
+        }
+        
+        .login-user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: var(--secondary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .login-user-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .login-user-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .user-delete-btn {
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        
+        .user-delete-btn:hover {
+            color: var(--danger-color);
+            background-color: rgba(231, 76, 60, 0.1);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                margin-bottom: 20px;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .tab {
+                margin-right: 0;
+                margin-bottom: 5px;
+                border-radius: 4px;
+            }
+            
+            .checklist-item {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .status-options {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> User Login</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 20px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">Select User Account</h3>
+                    <div class="login-user-list" id="loginUserList">
+                        <!-- User list will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div style="border-top: 1px solid #eee; padding-top: 20px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">Or Create New User</h3>
+                    <form id="newUserForm" class="login-form">
+                        <div class="info-group">
+                            <label for="newUserName">Full Name</label>
+                            <input type="text" id="newUserName" placeholder="Enter your full name" required>
+                        </div>
+                        <div class="info-group">
+                            <label for="newUserEmail">Email Address</label>
+                            <input type="email" id="newUserEmail" placeholder="Enter your email">
+                        </div>
+                        <div class="info-group">
+                            <label for="newUserRole">Role</label>
+                            <select id="newUserRole">
+                                <option value="PCB Designer">PCB Designer</option>
+                                <option value="Electrical Engineer">Electrical Engineer</option>
+                                <option value="Hardware Engineer">Hardware Engineer</option>
+                                <option value="Test Engineer">Test Engineer</option>
+                                <option value="Project Manager">Project Manager</option>
+                                <option value="Quality Assurance">Quality Assurance</option>
+                            </select>
+                        </div>
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button type="submit" style="background-color: var(--success-color); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                                <i class="fas fa-user-plus"></i> Create & Login
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Top Navigation -->
+        <div class="top-nav">
+            <div class="nav-left">
+                <h1><i class="fas fa-pcb"></i> PCB Design Checklist v4.1.3</h1>
+            </div>
+            <div class="nav-right">
+                <div class="user-info" id="userInfo">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <span id="userName">Click to Login</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Navigation</h3>
+                    <ul class="sidebar-menu">
+                        <li><a href="#" id="exportExcelBtn"><i class="fas fa-file-excel"></i> Export to Excel</a></li>
+                        <li><a href="#" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> Export to PDF</a></li>
+                        <li><a href="#" id="exportSummaryBtn"><i class="fas fa-file-alt"></i> Export Summary</a></li>
+                        <li><a href="#" id="resetBtn"><i class="fas fa-undo"></i> Reset Checklist</a></li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <h3>Settings</h3>
+                    <ul class="sidebar-menu">
+                        <li><a href="#" id="versionBtn"><i class="fas fa-history"></i> Version History</a></li>
+                        <li><a href="#" id="helpBtn"><i class="fas fa-question-circle"></i> Help & References</a></li>
+                        <li><a href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    </ul>
+                </div>
+                <div class="sidebar-section">
+                    <h3>Quick Stats</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="globalProgress" style="width: 0%"></div>
+                    </div>
+                    <div style="text-align: center; margin-top: 10px;">
+                        <span id="progressText">0% Complete</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Side -->
+            <div>
+                <!-- Project Info -->
+                <div class="project-info-panel">
+                    <h2><i class="fas fa-project-diagram"></i> Project Information</h2>
+                    <div class="project-info-grid">
+                        <div class="info-group">
+                            <label for="designerName">Designer's Name</label>
+                            <input type="text" id="designerName" placeholder="Enter your name">
+                        </div>
+                        <div class="info-group">
+                            <label for="spec">Spec/Project Name</label>
+                            <input type="text" id="spec" placeholder="Project specification">
+                        </div>
+                        <div class="info-group">
+                            <label for="hwType">HW Type</label>
+                            <select id="hwType">
+                                <option value="">Select HW Type</option>
+                                <option value="motherboard">Motherboard</option>
+                                <option value="daughterboard">Daughterboard</option>
+                                <option value="power-supply">Power Supply</option>
+                                <option value="controller">Controller Board</option>
+                                <option value="sensor">Sensor Board</option>
+                                <option value="rf">RF Board</option>
+                            </select>
+                        </div>
+                        <div class="info-group">
+                            <label for="generic">Generic/Part Number</label>
+                            <input type="text" id="generic" placeholder="Part number">
+                        </div>
+                        <div class="info-group">
+                            <label for="brNumber">Board Record #</label>
+                            <input type="text" id="brNumber" placeholder="e.g., BR001">
+                        </div>
+                        <div class="info-group">
+                            <label for="ecrNumber">ECR# (Engineering Change)</label>
+                            <input type="text" id="ecrNumber" placeholder="ECR number">
+                        </div>
+                        <div class="info-group">
+                            <label for="template">Template Used</label>
+                            <input type="text" id="template" placeholder="Template name">
+                        </div>
+                        <div class="info-group">
+                            <label for="startDate">Start Date</label>
+                            <input type="date" id="startDate">
+                        </div>
+                        <div class="info-group">
+                            <label for="endDate">Target Date</label>
+                            <input type="date" id="endDate">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dashboard -->
+                <div class="dashboard">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalItems">0</div>
+                        <div class="stat-label">Total Items</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-value" id="completedItems">0</div>
+                        <div class="stat-label">Completed</div>
+                    </div>
+                    <div class="stat-card critical">
+                        <div class="stat-value" id="criticalIssues">0</div>
+                        <div class="stat-label">Critical Issues</div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-value" id="riskScore">0%</div>
+                        <div class="stat-label">Risk Score</div>
+                    </div>
+                    <div class="stat-card info">
+                        <div class="stat-value" id="completionRate">0%</div>
+                        <div class="stat-label">Completion</div>
+                    </div>
+                </div>
+                
+                <!-- Tabs -->
+                <div class="tabs">
+                    <div class="tab active" data-tab="dfm"><i class="fas fa-industry"></i> DFM - Design for Manufacturing</div>
+                    <div class="tab" data-tab="dfa"><i class="fas fa-cogs"></i> DFA - Design for Assembly</div>
+                    <div class="tab" data-tab="dft"><i class="fas fa-wave-square"></i> DFT - Design for Test</div>
+                    <div class="tab" data-tab="general"><i class="fas fa-tasks"></i> General PCB Layout</div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="filters-section">
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label for="criticalityFilter">Criticality Filter</label>
+                            <select id="criticalityFilter">
+                                <option value="all">All Levels</option>
+                                <option value="critical">Critical Only</option>
+                                <option value="high">High Priority</option>
+                                <option value="medium">Medium Priority</option>
+                                <option value="low">Low Priority</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="statusFilter">Status Filter</label>
+                            <select id="statusFilter">
+                                <option value="all">All Status</option>
+                                <option value="unanswered">Unanswered</option>
+                                <option value="yes">Completed (Yes)</option>
+                                <option value="no">Issues (No)</option>
+                                <option value="na">Not Applicable</option>
+                            </select>
+                        </div>
+                        <div class="search-box">
+                            <label for="searchInput">Search Items</label>
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchInput" placeholder="Search checklist items...">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Checklist Container -->
+                <div class="checklist-container" id="checklistContainer">
+                    <!-- Checklist will be rendered here by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        © 2025 | Norman Emmanuel D. Cordova | IPC-Certified Interconnect Designer (CID-21101143673) | All Rights Reserved. 
+        <span class="version-indicator" id="versionIndicator">v4.1.3 <i class="fas fa-info-circle"></i></span>
+    </footer>
+
+    <!-- Modals -->
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-question-circle"></i> Help & References for PCB Designers</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">Using the PCB Design Checklist</h3>
+                    <p>This comprehensive checklist guides junior PCB engineers through industry-standard design practices. The checklist is organized into four main categories:</p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+                        <div style="background: #e8f4fc; padding: 15px; border-radius: 6px;">
+                            <h4><i class="fas fa-industry"></i> DFM</h4>
+                            <p>Design for Manufacturing - Ensuring your PCB can be reliably manufactured</p>
+                        </div>
+                        <div style="background: #f0f8e8; padding: 15px; border-radius: 6px;">
+                            <h4><i class="fas fa-cogs"></i> DFA</h4>
+                            <p>Design for Assembly - Optimizing for component placement and soldering</p>
+                        </div>
+                        <div style="background: #fff8e8; padding: 15px; border-radius: 6px;">
+                            <h4><i class="fas fa-wave-square"></i> DFT</h4>
+                            <p>Design for Test - Including test points and debug access</p>
+                        </div>
+                        <div style="background: #f5e8fc; padding: 15px; border-radius: 6px;">
+                            <h4><i class="fas fa-tasks"></i> General</h4>
+                            <p>General PCB layout best practices and signal integrity</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">Criticality Levels</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                        <div style="padding: 10px; border-left: 4px solid var(--critical-color);">
+                            <strong>CRITICAL</strong> - Must be addressed to avoid major manufacturing or functional issues
+                        </div>
+                        <div style="padding: 10px; border-left: 4px solid var(--danger-color);">
+                            <strong>HIGH</strong> - Important for reliability and performance
+                        </div>
+                        <div style="padding: 10px; border-left: 4px solid var(--warning-color);">
+                            <strong>MEDIUM</strong> - Best practices for optimization
+                        </div>
+                        <div style="padding: 10px; border-left: 4px solid var(--secondary-color);">
+                            <strong>LOW</strong> - Basic checks and recommendations
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">Risk Score Calculation</h3>
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px;">
+                        <p><strong>Risk Score Calculation (Percentage):</strong></p>
+                        <ol style="padding-left: 20px; margin-bottom: 15px;">
+                            <li>Each critical item marked "No" contributes <strong>10 points</strong></li>
+                            <li>Each unanswered critical item contributes <strong>5 points</strong></li>
+                            <li>Maximum possible score = (Total Critical Items × 10)</li>
+                            <li>Risk Score % = (Current Score ÷ Maximum Score) × 100</li>
+                        </ol>
+                        <p><strong>Interpretation:</strong></p>
+                        <ul style="padding-left: 20px;">
+                            <li><span style="color: var(--success-color); font-weight: bold;">0-20%:</span> Low Risk - Good progress</li>
+                            <li><span style="color: var(--warning-color); font-weight: bold;">21-50%:</span> Moderate Risk - Needs attention</li>
+                            <li><span style="color: var(--danger-color); font-weight: bold;">51-80%:</span> High Risk - Significant issues</li>
+                            <li><span style="color: var(--critical-color); font-weight: bold;">81-100%:</span> Critical Risk - Immediate action required</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">IPC Standards & References</h3>
+                    <ul style="list-style-type: none; padding-left: 0;">
+                        <li style="margin-bottom: 8px;"><i class="fas fa-book" style="color: var(--ipc-color); margin-right: 8px;"></i> <strong>IPC-2221:</strong> Generic Standard on Printed Board Design</li>
+                        <li style="margin-bottom: 8px;"><i class="fas fa-book" style="color: var(--ipc-color); margin-right: 8px;"></i> <strong>IPC-7351:</strong> Generic Requirements for Surface Mount Design</li>
+                        <li style="margin-bottom: 8px;"><i class="fas fa-book" style="color: var(--ipc-color); margin-right: 8px;"></i> <strong>IPC-6012:</strong> Qualification and Performance Specification for Rigid Printed Boards</li>
+                        <li style="margin-bottom: 8px;"><i class="fas fa-book" style="color: var(--ipc-color); margin-right: 8px;"></i> <strong>IPC-A-600:</strong> Acceptability of Printed Boards</li>
+                        <li style="margin-bottom: 8px;"><i class="fas fa-book" style="color: var(--ipc-color); margin-right: 8px;"></i> <strong>IPC-A-610:</strong> Acceptability of Electronic Assemblies</li>
+                    </ul>
+                </div>
+                
+                <div style="margin-top: 25px;">
+                    <h3 style="color: var(--primary-color); margin-bottom: 15px;">Tips for Junior Engineers</h3>
+                    <ol style="padding-left: 20px;">
+                        <li style="margin-bottom: 8px;">Always start with a complete schematic review before layout</li>
+                        <li style="margin-bottom: 8px;">Consult with your PCB fabricator early about capabilities</li>
+                        <li style="margin-bottom: 8px;">Use design rules that match your manufacturer's capabilities</li>
+                        <li style="margin-bottom: 8px;">Always run DRC (Design Rule Check) before generating outputs</li>
+                        <li style="margin-bottom: 8px;">Document everything - good documentation saves time later</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Version Modal -->
+    <div id="versionModal" class="modal">
+        <div class="version-modal-content modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-history"></i> Version History</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="version-history-container">
+                <div class="version-header-main">
+                    <h3>PCB Design Checklist System</h3>
+                    <div class="copyright">© 2025 Norman Emmanuel D. Cordova | IPC-CID Certified</div>
+                    <div class="current-version-badge">Current Version: v4.1.3</div>
+                </div>
+                
+                <div class="version-entry">
+                    <div class="version-entry-header">
+                        <div class="version-number">v4.1.3</div>
+                        <div class="version-date">(2025-12-15)</div>
+                    </div>
+                    <div style="padding-left: 15px;">
+                        <ul>
+                            <li>Fixed export flow to direct approach with confirmation dialogs</li>
+                            <li>Implemented inline comment editing without modal forms</li>
+                            <li>Fixed PDF hyperlink truncation issue - URLs now preserved completely</li>
+                            <li>Added item text traceability for attached images in PDF export</li>
+                            <li>Replaced multiple alert prompts with single confirmation dialogs</li>
+                            <li>Enhanced user account management with delete functionality</li>
+                            <li>Added professional note for long URLs requiring manual copy-paste</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="version-entry">
+                    <div class="version-entry-header">
+                        <div class="version-number">v4.1.2</div>
+                        <div class="version-date">(2025-12-15)</div>
+                    </div>
+                    <div style="padding-left: 15px;">
+                        <ul>
+                            <li>Fixed risk score calculation to cap at 100% maximum</li>
+                            <li>Cleared default user history - users now start fresh</li>
+                            <li>Improved PDF export status display with proper formatting</li>
+                            <li>PDF status now shows: [YES] (green), [NO] (red), [N/A] (grey), [?] (yellow)</li>
+                            <li>Enhanced user management with clean initial state</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="version-entry">
+                    <div class="version-entry-header">
+                        <div class="version-number">v4.1.1</div>
+                        <div class="version-date">(2025-12-12)</div>
+                    </div>
+                    <div style="padding-left: 15px;">
+                        <ul>
+                            <li>Fixed PDF export: Images now display correctly in PDF output</li>
+                            <li>Fixed Excel export: Added separate sheets for Project Info, DFM, DFA, DFT, General</li>
+                            <li>Hyperlinked comments now export properly to PDF</li>
+                            <li>Enhanced image handling with size validation prompts</li>
+                            <li>Improved export performance and reliability</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="version-entry">
+                    <div class="version-entry-header">
+                        <div class="version-number">v4.1.0</div>
+                        <div class="version-date">(2025-12-12)</div>
+                    </div>
+                    <div style="padding-left: 15px;">
+                        <ul>
+                            <li>Complete implementation with all PCB checklist items</li>
+                            <li>Added General PCB Layout tab with comprehensive items</li>
+                            <li>Enhanced user interface with progress tracking</li>
+                            <li>Improved help section with IPC standards reference</li>
+                            <li>Added expert tips for advanced design considerations</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="version-entry">
+                    <div class="version-entry-header">
+                        <div class="version-number">v4.0.0</div>
+                        <div class="version-date">(2025-12-12)</div>
+                    </div>
+                    <div style="padding-left: 15px;">
+                        <ul>
+                            <li>Added comprehensive DFA checklist items</li>
+                            <li>Enhanced tab navigation system</li>
+                            <li>Improved export functionality</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="version-footer" style="margin-top: 25px; padding-top: 20px; border-top: 2px solid var(--primary-color);">
+                    <h4>Development Philosophy</h4>
+                    <ul>
+                        <li>Progressive enhancement with backward compatibility</li>
+                        <li>Enterprise-grade usability with design validation</li>
+                        <li>Professional documentation and version tracking</li>
+                        <li>Focus on education for junior PCB engineers</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal - REMOVED as per requirement -->
+    
+    <!-- Attachment Preview Modal -->
+    <div id="attachmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-paperclip"></i> Attachment Preview</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <img id="attachmentPreview" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto 15px; border: 1px solid #ddd; border-radius: 4px; object-fit: contain;" src="" alt="Preview">
+            <div id="attachmentInfo" style="background-color: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 15px;"></div>
+        </div>
+    </div>
+
+    <!-- Reset Confirmation Modal -->
+    <div id="resetModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-exclamation-triangle"></i> Confirm Reset</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div style="padding: 20px; text-align: center;">
+                <i class="fas fa-exclamation-circle" style="font-size: 3rem; color: var(--warning-color); margin-bottom: 15px;"></i>
+                <h3 style="margin-bottom: 15px;">Reset All Checklist Data?</h3>
+                <p style="margin-bottom: 20px;">This will clear all your responses, comments, and attachments. This action cannot be undone.</p>
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <button id="confirmReset" style="background-color: var(--danger-color); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Yes, Reset All</button>
+                    <button class="close-modal" style="background-color: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // COMPLETE PCB DESIGN CHECKLIST SYSTEM - v4.1.3
+        // ============================================================================
+        
+        // Application State Management
+        const APP_STATE = {
+            currentUser: null,
+            users: [],
+            projectData: {
+                designerName: "",
+                spec: "",
+                hwType: "",
+                generic: "",
+                brNumber: "",
+                ecrNumber: "",
+                template: "",
+                startDate: "",
+                endDate: ""
+            },
+            userResponses: {},
+            comments: {},
+            attachments: {},
+            currentTab: "dfm",
+            filters: {
+                criticality: "all",
+                status: "all",
+                search: ""
+            },
+            
+            // Comprehensive PCB Checklist Data
+            checklistGroups: {
+                dfm: [
+                    {
+                        name: '1. Project Setup & Schematic Review',
+                        juniorTip: 'Always start by verifying your schematic is correct before beginning PCB layout. A mistake here can cost weeks of rework.',
+                        items: [
+                            { id: 'dfm-1-1', text: 'Schematic and PCB are synchronized (no forward/backward annotation errors)', tooltip: 'In Allegro: Tools → Update PCB. Check for any errors in the session log', details: 'Run Design → Update PCB in Allegro and verify no errors in the session log. Check for any "ECO" errors that need resolution.', criticality: 'critical', tags: ['allegro', 'schematic'], reference: 'Allegro Best Practices' },
+                            { id: 'dfm-1-2', text: 'All components have correct footprints with no missing pins', tooltip: 'Check that symbol pins match footprint pads, especially for connectors and ICs', details: 'Open symbol editor to verify pin mapping. Check for any "DRC" markers in schematic. Verify BGA and QFN footprint pinouts match datasheet.', criticality: 'critical', tags: ['footprint', 'library'], reference: 'IPC-7351' },
+                            { id: 'dfm-1-3', text: 'Netlist is clean with no unresolved components or nets', tooltip: 'Verify all components are placed and all nets are properly connected', details: 'Check the netlist report for any warnings or errors about unplaced components. Verify no "floating" nets or unconnected pins.', criticality: 'critical', tags: ['netlist', 'connectivity'], reference: 'Schematic Review' },
+                            { id: 'dfm-1-4', text: 'Design constraints are set up for critical nets', tooltip: 'Set up spacing, physical, and electrical constraints for your design', details: 'In Allegro: Setup → Constraints → Physical. Set up minimum trace widths and clearances. Define differential pair constraints for high-speed signals.', criticality: 'high', tags: ['constraints', 'allegro'], reference: 'Allegro Constraint Manager' },
+                            { id: 'dfm-1-5', text: 'Board outline is defined with correct dimensions', tooltip: 'The board outline should match the mechanical requirements', details: 'Use the "Outline" tool to draw the board shape. Verify dimensions with mechanical drawing. Include mounting holes at correct locations.', criticality: 'critical', tags: ['outline', 'mechanical'], reference: 'Mechanical Drawing' },
+                            { id: 'dfm-1-6', text: 'Verify all component libraries are from approved sources', tooltip: 'Using unverified libraries can cause manufacturing issues', details: 'Check that all footprints and symbols come from your company\'s approved library. Verify 3D models if available.', criticality: 'high', tags: ['library', 'quality'], reference: 'Company Standards' },
+                            { id: 'dfm-1-7', text: 'Design rules are set according to fabricator capabilities', tooltip: 'Minimum trace/space, annular ring, hole sizes', details: 'Set design rules to match or exceed your fabricator\'s minimum requirements. Include rules for different net classes.', criticality: 'critical', tags: ['design-rules', 'manufacturing'], reference: 'Fabricator Capability Doc' },
+                            { id: 'dfm-1-8', text: 'Layer stackup is defined with correct materials and thickness', tooltip: 'Stackup affects impedance and manufacturability', details: 'Define dielectric materials, copper weights, and final board thickness. Verify with fabricator.', criticality: 'high', tags: ['stackup', 'impedance'], reference: 'IPC-2221' },
+                        ]
+                    },
+                    {
+                        name: '2. Board Setup & Layer Stackup',
+                        juniorTip: 'Always consult with your PCB fabricator about their standard stackups before defining your layer stack. This saves cost and lead time.',
+                        items: [
+                            { id: 'dfm-2-1', text: 'Layer stackup matches fabricator\'s capabilities', tooltip: 'Verify the number of layers, thickness, and materials are within fabricator\'s specs', details: 'Check with your PCB manufacturer for their standard stackups and capabilities. Avoid custom materials unless necessary.', criticality: 'high', tags: ['stackup', 'manufacturing'], reference: 'Fabricator Guidelines' },
+                            { id: 'dfm-2-2', text: 'Controlled impedance requirements are defined', tooltip: 'Set up impedance profiles for high-speed signals like USB, Ethernet, DDR', details: 'In Allegro: Setup → Constraints → Physical → Impedance. Define trace width for target impedance. Use fabricator\'s dielectric constant values.', criticality: 'high', tags: ['impedance', 'high-speed'], reference: 'IPC-2141' },
+                            { id: 'dfm-2-3', text: 'At least one continuous ground plane exists', tooltip: 'A solid ground plane provides return paths and reduces EMI', details: 'Ensure one layer is dedicated as a ground plane with minimal splits. Avoid routing critical signals across plane splits.', criticality: 'critical', tags: ['ground-plane', 'emi'], reference: 'EMI Best Practices' },
+                            { id: 'dfm-2-4', text: 'Copper thickness specified for each layer', tooltip: 'Different layers may have different copper weights depending on current requirements', details: 'Power layers typically use thicker copper (1oz or 2oz) for better current handling. Signal layers can use 0.5oz or 1oz.', criticality: 'medium', tags: ['copper-weight', 'current'], reference: 'Current Carrying Capacity' },
+                            { id: 'dfm-2-5', text: 'Board thickness and tolerance specified', tooltip: 'Standard board thickness is 1.6mm, but can vary based on application', details: 'Check mechanical requirements for board thickness. Standard is 1.6mm ±10%. For impedance control, tighter tolerances may be needed.', criticality: 'medium', tags: ['thickness', 'mechanical'], reference: 'IPC-2221' },
+                            { id: 'dfm-2-6', text: 'Verify dielectric materials are available and appropriate', tooltip: 'Different materials have different electrical and thermal properties', details: 'FR-4 is standard, but high-frequency designs may require specialized materials like Rogers. Check lead times and costs.', criticality: 'high', tags: ['materials', 'high-frequency'], reference: 'Material Datasheets' },
+                            { id: 'dfm-2-7', text: 'Define any special requirements for the fabricator', tooltip: 'Special requirements may include impedance testing, specific materials, or special finishes', details: 'Document any special requirements in your fabrication notes. Include impedance testing coupons if required.', criticality: 'medium', tags: ['fabrication', 'documentation'], reference: 'Fabrication Notes' },
+                            { id: 'dfm-2-8', text: 'Check for adequate clearance for buried/blind vias', tooltip: 'Buried and blind vias require special manufacturing processes', details: 'Verify with fabricator if they support buried/blind vias. Ensure adequate spacing between different via structures.', criticality: 'high', tags: ['vias', 'hdi'], reference: 'HDI Design Guidelines' },
+                        ]
+                    },
+                    {
+                        name: '3. Design Rules & Manufacturing Constraints',
+                        juniorTip: 'Designing within your fabricator\'s capabilities reduces cost and improves yield. Don\'t push limits unless absolutely necessary.',
+                        items: [
+                            { id: 'dfm-3-1', text: 'Verify minimum trace/space meets fabricator capabilities', tooltip: 'Standard capabilities are 5mil/5mil, but check with your specific fabricator', details: 'Set design rules to match or exceed your fabricator\'s minimum requirements. Add margin for manufacturing tolerance.', criticality: 'critical', tags: ['trace', 'space', 'manufacturing'], reference: 'Fabricator DRC' },
+                            { id: 'dfm-3-2', text: 'Check annular ring requirements for vias and pads', tooltip: 'Annular ring is the copper pad around a drilled hole', details: 'Minimum annular ring is typically 5mil for standard designs. For BGA vias, ensure adequate ring after via-in-pad processing.', criticality: 'critical', tags: ['annular-ring', 'vias'], reference: 'IPC-2221' },
+                            { id: 'dfm-3-3', text: 'Ensure adequate solder mask web between pads', tooltip: 'Solder mask web prevents solder bridges between adjacent pads', details: 'Minimum solder mask web is typically 4mil for standard designs. For fine-pitch components, verify with assembler.', criticality: 'high', tags: ['solder-mask', 'assembly'], reference: 'IPC-SM-840' },
+                            { id: 'dfm-3-4', text: 'Check minimum hole size for through-hole components', tooltip: 'Drill sizes have minimum practical limits', details: 'Standard minimum drill size is 8mil (0.2mm). For high aspect ratio boards, larger minimum may be required.', criticality: 'high', tags: ['drill', 'holes'], reference: 'Fabricator Capabilities' },
+                            { id: 'dfm-3-5', text: 'Verify silkscreen line width and spacing', tooltip: 'Silkscreen needs to be legible after manufacturing', details: 'Minimum silkscreen line width is typically 6mil. Ensure no silkscreen over exposed copper or solder mask openings.', criticality: 'low', tags: ['silkscreen', 'legibility'], reference: 'IPC Guidelines' },
+                            { id: 'dfm-3-6', text: 'Check copper-to-edge clearance', tooltip: 'Copper too close to board edge can cause shorting', details: 'Maintain at least 20mil clearance from copper features to board edge. Larger for boards with routing tabs.', criticality: 'critical', tags: ['board-edge', 'clearance'], reference: 'Manufacturing Safety' },
+                            { id: 'dfm-3-7', text: 'Verify solder mask expansion settings', tooltip: 'Solder mask should slightly overlap pads', details: 'Standard solder mask expansion is 2-4mil. For BGA and fine-pitch, may need smaller or even negative expansion.', criticality: 'medium', tags: ['solder-mask', 'expansion'], reference: 'IPC-SM-840' },
+                            { id: 'dfm-3-8', text: 'Check paste mask expansion for SMD pads', tooltip: 'Paste mask defines stencil openings', details: 'Paste mask is typically same size as pad or slightly smaller. For fine-pitch, may need special stencil design.', criticality: 'medium', tags: ['paste-mask', 'stencil'], reference: 'Stencil Design Guide' },
+                        ]
+                    },
+                    {
+                        name: '4. Copper Pour & Plane Design',
+                        juniorTip: 'Proper copper pour design improves thermal performance and reduces EMI. Use thermal reliefs for through-hole connections to planes.',
+                        items: [
+                            { id: 'dfm-4-1', text: 'Copper pours have adequate clearance from traces', tooltip: 'Prevents shorting and maintains impedance', details: 'Maintain at least 8-10mil clearance between copper pour and signal traces. Larger for high voltage differences.', criticality: 'medium', tags: ['copper-pour', 'clearance'], reference: 'Signal Integrity' },
+                            { id: 'dfm-4-2', text: 'Thermal relief used for through-hole pins connected to planes', tooltip: 'Makes soldering easier by reducing heat sinking', details: 'Use thermal relief spokes for through-hole pads connected to planes. Typically 4 spokes with 10-20mil width.', criticality: 'high', tags: ['thermal-relief', 'soldering'], reference: 'Assembly Guidelines' },
+                            { id: 'dfm-4-3', text: 'Check for copper islands (dead copper)', tooltip: 'Small isolated copper areas can cause manufacturing issues', details: 'Remove any small isolated copper islands. Use copper pour "orphan" removal feature in your CAD tool.', criticality: 'low', tags: ['copper-islands', 'manufacturing'], reference: 'DFM Checklist' },
+                            { id: 'dfm-4-4', text: 'Plane layers are properly partitioned for multiple voltages', tooltip: 'Different voltage regions need isolation', details: 'Maintain at least 20mil clearance between different voltage regions on the same plane layer. Add keepouts if needed.', criticality: 'high', tags: ['power-plane', 'isolation'], reference: 'Power Integrity' },
+                            { id: 'dfm-4-5', text: 'Copper pour connections to pins are adequate for current', tooltip: 'Narrow connections can cause heating', details: 'Ensure copper pour connections to pins are wide enough for expected current. Use multiple connections for high current pins.', criticality: 'high', tags: ['current', 'thermal'], reference: 'Current Carrying' },
+                        ]
+                    }
+                ],
+                
+                dfa: [
+                    {
+                        name: '1. Component Placement for Assembly',
+                        juniorTip: 'Good component placement is 80% of a successful PCB layout. Take your time with this step. Think about assembly process, rework access, and thermal management.',
+                        items: [
+                            { id: 'dfa-1-1', text: 'All components placed within board outline', tooltip: 'No components should extend beyond the board edge', details: 'Use 3D view to verify no components extend beyond board edges. Check component keepout areas.', criticality: 'critical', tags: ['placement', 'board-edge'], reference: 'Mechanical Constraints' },
+                            { id: 'dfa-1-2', text: 'Connectors and interfaces placed at board edges', tooltip: 'USB, Ethernet, power connectors should be easily accessible from board edge', details: 'Place connectors where they\'ll be accessible in the final product enclosure. Consider cable strain relief.', criticality: 'high', tags: ['connectors', 'accessibility'], reference: 'Enclosure Design' },
+                            { id: 'dfa-1-3', text: 'Decoupling capacitors placed close to IC power pins', tooltip: 'Place 0.1uF capacitors within 5mm of each power pin for effective decoupling', details: 'Use the "Show Rats" feature to see connections between capacitors and IC power pins. Minimize loop area.', criticality: 'critical', tags: ['decoupling', 'power-integrity'], reference: 'Power Integrity Guidelines' },
+                            { id: 'dfa-1-4', text: 'Components spaced for assembly and rework', tooltip: 'Leave at least 0.5mm between components for assembly and potential rework', details: 'Check with your assembly house for their minimum component spacing requirements. Consider tool access.', criticality: 'high', tags: ['spacing', 'rework'], reference: 'Assembly Guidelines' },
+                            { id: 'dfa-1-5', text: 'Heavy components supported (not hanging over empty space)', tooltip: 'Large components like transformers should be placed over supporting areas', details: 'Check mechanical drawing for any restrictions on component placement. Add support for components >5g.', criticality: 'high', tags: ['mechanical', 'support'], reference: 'Mechanical Reliability' },
+                            { id: 'dfa-1-6', text: 'Group components by function (power, analog, digital)', tooltip: 'Functional grouping improves signal integrity and simplifies routing', details: 'Keep analog components away from noisy digital components. Separate high-frequency circuits.', criticality: 'high', tags: ['partitioning', 'signal-integrity'], reference: 'Mixed-Signal Design' },
+                            { id: 'dfa-1-7', text: 'Place components for optimal thermal management', tooltip: 'Heat-generating components need adequate spacing and thermal relief', details: 'Place high-power components near board edges or with adequate copper for heat sinking. Consider airflow.', criticality: 'critical', tags: ['thermal', 'placement'], reference: 'Thermal Management' },
+                            { id: 'dfa-1-8', text: 'Fiducial marks placed for automated assembly', tooltip: 'Fiducials help pick-and-place machines accurately position components', details: 'Place at least 3 fiducials (1mm diameter) away from board edges. Include local fiducials for fine-pitch components.', criticality: 'critical', tags: ['fiducial', 'automation'], reference: 'SMT Assembly' },
+                            { id: 'dfa-1-9', text: 'Solder paste stencil apertures properly defined', tooltip: 'Stencil design affects solder paste volume and joint quality', details: 'Verify stencil layer has correct apertures for all SMD pads. Consider area ratio for fine-pitch components.', criticality: 'high', tags: ['stencil', 'solder-paste'], reference: 'Stencil Design Guide' },
+                            { id: 'dfa-1-10', text: 'Component height restrictions observed', tooltip: 'Tall components may interfere with enclosures or other boards', details: 'Check mechanical constraints for maximum component height on both sides. Consider components on opposite sides.', criticality: 'high', tags: ['height', 'clearance'], reference: 'Envelope Check' },
+                            { id: 'dfa-1-11', text: 'Polarized components oriented consistently', tooltip: 'Consistent orientation helps assembly and inspection', details: 'Orient all polarized components (diodes, capacitors, ICs) in same direction when possible. Follow company standards.', criticality: 'medium', tags: ['orientation', 'assembly'], reference: 'Assembly Best Practices' },
+                            { id: 'dfa-1-12', text: 'Avoid placing components under overhanging parts', tooltip: 'Components under connectors or heatsinks are hard to inspect and rework', details: 'Leave clearance under any components that overhang. Check 3D model for interference.', criticality: 'medium', tags: ['clearance', 'rework'], reference: 'Design for Rework' },
+                        ]
+                    },
+                    {
+                        name: '2. Solderability & Assembly Features',
+                        juniorTip: 'Good solderability starts with proper pad design and component spacing. Always think about how the board will be assembled.',
+                        items: [
+                            { id: 'dfa-2-1', text: 'SMD pads have adequate size for component placement', tooltip: 'Pads should extend beyond component termination', details: 'Follow IPC-7351 land pattern recommendations. Adjust for your assembly process capability.', criticality: 'high', tags: ['pads', 'smt'], reference: 'IPC-7351' },
+                            { id: 'dfa-2-2', text: 'Through-hole pads have adequate annular ring', tooltip: 'Ensures reliable solder connection', details: 'Minimum annular ring typically 5mil after plating. Larger for high-reliability applications.', criticality: 'critical', tags: ['through-hole', 'annular-ring'], reference: 'IPC-2221' },
+                            { id: 'dfa-2-3', text: 'Solder mask defined vs non-solder mask defined pads', tooltip: 'Different pad types for different applications', details: 'Use solder mask defined pads for fine-pitch components. Non-solder mask defined for better solder volume.', criticality: 'medium', tags: ['solder-mask', 'pads'], reference: 'Solder Joint Reliability' },
+                            { id: 'dfa-2-4', text: 'Test points accessible for bed-of-nails fixture', tooltip: 'Test points need adequate clearance for probe access', details: 'Place test points on grid (usually 100mil). Maintain clearance around test points for probe access.', criticality: 'high', tags: ['test-points', 'access'], reference: 'Test Fixture Design' },
+                            { id: 'dfa-2-5', text: 'Solder paste coverage adequate for all pads', tooltip: 'Insufficient paste causes poor solder joints', details: 'Verify stencil apertures provide adequate paste volume. Consider step stencils for mixed component sizes.', criticality: 'high', tags: ['solder-paste', 'stencil'], reference: 'Stencil Design' },
+                            { id: 'dfa-2-6', text: 'Components placed for wave soldering consideration', tooltip: 'Wave soldering has specific requirements', details: 'For wave soldering, orient components perpendicular to solder flow. Provide solder thieves.', criticality: 'medium', tags: ['wave-soldering', 'orientation'], reference: 'Wave Soldering Guide' },
+                        ]
+                    },
+                    {
+                        name: '3. Thermal Management for Assembly',
+                        juniorTip: 'Thermal management affects both reliability and manufacturability. Heat must be properly dissipated during both operation and soldering.',
+                        items: [
+                            { id: 'dfa-3-1', text: 'Thermal vias under thermal pads of ICs', tooltip: 'Thermal vias transfer heat from component to other layers or opposite side', details: 'Use multiple small vias (8-12mil) rather than fewer large vias. Fill vias with solder mask or conductive epoxy if needed.', criticality: 'critical', tags: ['thermal-vias', 'cooling'], reference: 'Thermal Management' },
+                            { id: 'dfa-3-2', text: 'Thermal relief for through-hole pads connected to planes', tooltip: 'Thermal relief makes soldering easier by reducing heat sinking to planes', details: 'Allegro automatically adds thermal relief, but verify it\'s adequate for current requirements.', criticality: 'high', tags: ['thermal-relief', 'soldering'], reference: 'Soldering Guidelines' },
+                            { id: 'dfa-3-3', text: 'Adequate copper area for heat dissipation', tooltip: 'More copper area means better heat spreading and lower temperatures', details: 'Use copper pours connected to thermal pads of high-power components. Consider exposed pads for heatsinks.', criticality: 'high', tags: ['copper-area', 'thermal'], reference: 'Thermal Design' },
+                            { id: 'dfa-3-4', text: 'Consider reflow temperature profiles', tooltip: 'Different components have different temperature tolerances', details: 'Place temperature-sensitive components away from high thermal mass areas. Consider reflow shadowing.', criticality: 'medium', tags: ['reflow', 'temperature'], reference: 'Reflow Profile' },
+                        ]
+                    }
+                ],
+                
+                dft: [
+                    {
+                        name: '1. Test Points & Debug Access',
+                        juniorTip: 'Designing for testability is often overlooked but critical for production and debugging. Add test points early in the design process.',
+                        items: [
+                            { id: 'dft-1-1', text: 'Test points on all power rails', tooltip: 'All power rails need test access for validation', details: 'Add test points to all voltage rails (1.8V, 3.3V, 5V, 12V, etc.) for power measurement and debugging.', criticality: 'critical', tags: ['test-points', 'power'], reference: 'Power Validation' },
+                            { id: 'dft-1-2', text: 'Test points on reset and clock signals', tooltip: 'Critical control signals need test access', details: 'Add test points to reset lines, clock outputs, and other critical control signals for debugging.', criticality: 'high', tags: ['test-points', 'debug'], reference: 'Debug Access' },
+                            { id: 'dft-1-3', text: 'Test points placed on standard grid', tooltip: 'Standard grid enables use of bed-of-nails test fixtures', details: 'Place test points on 100mil grid when possible. Maintain clearance for probe access.', criticality: 'medium', tags: ['test-grid', 'fixture'], reference: 'ICT Design' },
+                            { id: 'dft-1-4', text: 'Test points labeled with silkscreen', tooltip: 'Clear labeling helps technicians during testing', details: 'Add silkscreen labels next to test points (e.g., "TP1: 3.3V", "TP2: GND"). Use consistent naming convention.', criticality: 'low', tags: ['labeling', 'silkscreen'], reference: 'Test Documentation' },
+                            { id: 'dft-1-5', text: 'Test points accessible from both sides if needed', tooltip: 'Some test fixtures access both sides of board', details: 'Consider test point placement for double-sided test fixtures. Avoid placing components under test points.', criticality: 'medium', tags: ['access', 'both-sides'], reference: 'Test Fixture' },
+                            { id: 'dft-1-6', text: 'JTAG interface included if applicable', tooltip: 'JTAG allows for boundary scan testing and programming', details: 'Include JTAG connector with proper pull-up resistors and signal integrity. Follow standard pinout.', criticality: 'high', tags: ['jtag', 'programming'], reference: 'JTAG Standard' },
+                            { id: 'dft-1-7', text: 'Serial console/debug port included', tooltip: 'Debug ports help firmware development', details: 'Include UART or other debug interface with proper level shifting if needed. Label clearly.', criticality: 'medium', tags: ['debug', 'serial'], reference: 'Debug Standards' },
+                            { id: 'dft-1-8', text: 'Programming connectors for firmware update', tooltip: 'In-system programming capability', details: 'Include programming connector (JTAG, SWD, ICSP, etc.) for firmware updates. Consider production programming needs.', criticality: 'high', tags: ['programming', 'firmware'], reference: 'Programming Guide' },
+                        ]
+                    },
+                    {
+                        name: '2. Design for In-Circuit Test (ICT)',
+                        juniorTip: 'ICT catches manufacturing defects before boards leave the factory. Design with ICT in mind to reduce test costs.',
+                        items: [
+                            { id: 'dft-2-1', text: 'ICT access for critical nodes and power rails', tooltip: 'Critical signals need test access for production testing', details: 'Ensure all power rails and critical control signals have test points accessible for ICT.', criticality: 'high', tags: ['ict', 'test-access'], reference: 'ICT Guidelines' },
+                            { id: 'dft-2-2', text: 'Avoid placing components over test points', tooltip: 'Components block test probe access', details: 'Maintain clearance zone around test points. No components within at least 100mil of test point.', criticality: 'high', tags: ['clearance', 'ict'], reference: 'Probe Access' },
+                            { id: 'dft-2-3', text: 'Test points sized for standard probes', tooltip: 'Standard probes have minimum pad size requirements', details: 'Test point pads should be at least 35mil diameter for reliable probe contact.', criticality: 'medium', tags: ['test-pads', 'size'], reference: 'Probe Specifications' },
+                            { id: 'dft-2-4', text: 'Include ground test points near signal test points', tooltip: 'Ground reference for measurements', details: 'Place ground test points near signal test points for accurate measurements.', criticality: 'medium', tags: ['ground', 'reference'], reference: 'Measurement Techniques' },
+                            { id: 'dft-2-5', text: 'Consider test coverage percentage', tooltip: 'Aim for high test coverage to catch defects', details: 'Design for at least 85% test coverage. Document untestable nodes.', criticality: 'medium', tags: ['coverage', 'quality'], reference: 'Test Strategy' },
+                        ]
+                    },
+                    {
+                        name: '3. Boundary Scan & Functional Test',
+                        expertTip: 'Boundary scan (JTAG) can test connections without physical probes. Use it for high-density boards where physical test access is limited.',
+                        items: [
+                            { id: 'dft-3-1', text: 'JTAG chain properly designed', tooltip: 'JTAG devices need to be connected in proper chain', details: 'Connect JTAG devices in daisy chain with correct TDI/TDO connections. Include bypass capability.', criticality: 'high', tags: ['jtag', 'boundary-scan'], reference: 'IEEE 1149.1' },
+                            { id: 'dft-3-2', text: 'JTAG pull-up/pull-down resistors included', tooltip: 'Proper termination for JTAG signals', details: 'Include pull-up resistors on TMS and TDI, pull-down on TRST if used. Follow device recommendations.', criticality: 'medium', tags: ['termination', 'jtag'], reference: 'JTAG Implementation' },
+                            { id: 'dft-3-3', text: 'Test points on JTAG signals', tooltip: 'Access for external JTAG controllers', details: 'Add test points on TCK, TMS, TDI, TDO, TRST for external access.', criticality: 'medium', tags: ['test-points', 'jtag'], reference: 'Debug Access' },
+                            { id: 'dft-3-4', text: 'Functional test points for key interfaces', tooltip: 'Test points for functional testing', details: 'Add test points for key interfaces (USB, Ethernet, audio, etc.) for functional testing.', criticality: 'medium', tags: ['functional-test', 'interfaces'], reference: 'Test Plan' },
+                        ]
+                    }
+                ],
+                
+                general: [
+                    {
+                        name: '1. Signal Integrity & High-Speed Design',
+                        expertTip: 'Signal integrity issues often don\'t show up until volume production. Always simulate critical nets and follow best practices for high-speed design.',
+                        items: [
+                            { id: 'gen-1-1', text: 'Impedance-controlled routing for high-speed signals', tooltip: 'Match impedance to prevent reflections', details: 'Use controlled impedance routing for USB, Ethernet, HDMI, DDR, etc. Calculate trace width for target impedance.', criticality: 'critical', tags: ['impedance', 'high-speed'], reference: 'Signal Integrity' },
+                            { id: 'gen-1-2', text: 'Differential pairs routed with proper spacing', tooltip: 'Maintain consistent spacing for differential impedance', details: 'Route differential pairs with consistent spacing between traces. Keep pair-to-pair spacing larger than within-pair spacing.', criticality: 'critical', tags: ['differential', 'routing'], reference: 'Differential Signaling' },
+                            { id: 'gen-1-3', text: 'Signal return paths considered', tooltip: 'Signals need return paths, especially high-speed', details: 'Ensure high-speed signals have continuous reference planes. Avoid crossing plane splits.', criticality: 'high', tags: ['return-path', 'reference'], reference: 'Signal Return' },
+                            { id: 'gen-1-4', text: 'Length matching for timing-critical signals', tooltip: 'Match lengths to maintain timing relationships', details: 'Length match DDR data lines, clock pairs, etc. Use serpentine routing if needed. Follow timing specifications.', criticality: 'high', tags: ['length-matching', 'timing'], reference: 'Timing Analysis' },
+                            { id: 'gen-1-5', text: 'Avoid 90-degree trace angles', tooltip: '90-degree angles can cause impedance discontinuities', details: 'Use 45-degree angles or curved traces. This reduces reflections and improves manufacturability.', criticality: 'medium', tags: ['routing', 'angles'], reference: 'Routing Best Practices' },
+                            { id: 'gen-1-6', text: 'Via count minimized for high-speed signals', tooltip: 'Vias cause impedance discontinuities', details: 'Minimize via count on high-speed signals. When needed, use back-drilling or microvias for better performance.', criticality: 'medium', tags: ['vias', 'high-speed'], reference: 'Via Impact' },
+                            { id: 'gen-1-7', text: 'Crosstalk analysis performed if needed', tooltip: 'High-speed signals can interfere with each other', details: 'For very high-speed designs, perform crosstalk analysis. Increase spacing between critical signals.', criticality: 'medium', tags: ['crosstalk', 'analysis'], reference: 'Crosstalk Mitigation' },
+                        ]
+                    },
+                    {
+                        name: '2. Power Integrity & Distribution',
+                        juniorTip: 'Power distribution is often overlooked but critical for stable operation. Use adequate decoupling and proper plane design.',
+                        items: [
+                            { id: 'gen-2-1', text: 'Power plane splits minimize current loop areas', tooltip: 'Minimize loop area to reduce EMI', details: 'Arrange power planes to minimize current loop areas. Place decoupling caps close to IC power pins.', criticality: 'high', tags: ['power-plane', 'emi'], reference: 'Power Integrity' },
+                            { id: 'gen-2-2', text: 'Adequate decoupling capacitors for each IC', tooltip: 'Decoupling stabilizes power supply', details: 'Follow IC manufacturer recommendations for decoupling. Use multiple values (0.1µF, 1µF, 10µF) for different frequencies.', criticality: 'critical', tags: ['decoupling', 'capacitors'], reference: 'Decoupling Guide' },
+                            { id: 'gen-2-3', text: 'Bulk capacitance near power connectors', tooltip: 'Bulk capacitors handle transient currents', details: 'Place bulk capacitors (100µF+) near power connectors and voltage regulators.', criticality: 'high', tags: ['bulk-capacitance', 'power'], reference: 'Power Distribution' },
+                            { id: 'gen-2-4', text: 'Voltage regulator placement and routing', tooltip: 'Regulators need proper layout for stability', details: 'Place regulators close to loads. Use wide traces for high current. Follow manufacturer layout guidelines.', criticality: 'high', tags: ['regulators', 'layout'], reference: 'Regulator Design' },
+                            { id: 'gen-2-5', text: 'Power sequencing implemented if required', tooltip: 'Some ICs require specific power-up sequences', details: 'Check IC datasheets for power sequencing requirements. Implement sequencing circuits if needed.', criticality: 'medium', tags: ['sequencing', 'power-up'], reference: 'Power Management' },
+                        ]
+                    },
+                    {
+                        name: '3. EMI/EMC Considerations',
+                        expertTip: 'EMI problems are expensive to fix late in the design cycle. Design for EMI compliance from the beginning.',
+                        items: [
+                            { id: 'gen-3-1', text: 'Ground planes continuous with minimal splits', tooltip: 'Continuous ground planes reduce EMI', details: 'Maintain continuous ground planes where possible. If splits are necessary, bridge with capacitors.', criticality: 'high', tags: ['ground-plane', 'emi'], reference: 'EMI Reduction' },
+                            { id: 'gen-3-2', text: 'High-speed signals routed away from board edges', tooltip: 'Signals near edges can radiate EMI', details: 'Keep high-speed signals at least 3-5 times trace width from board edges. Use ground guard traces if needed.', criticality: 'medium', tags: ['board-edge', 'radiation'], reference: 'EMI Control' },
+                            { id: 'gen-3-3', text: 'Filtering on I/O lines', tooltip: 'Filters reduce conducted emissions', details: 'Add ferrite beads or filters on I/O lines entering/leaving the board. Follow EMI filter guidelines.', criticality: 'medium', tags: ['filtering', 'io'], reference: 'Conducted Emissions' },
+                            { id: 'gen-3-4', text: 'Shielding considered for sensitive circuits', tooltip: 'Shields contain RF energy', details: 'Consider shielding cans for RF circuits or sensitive analog circuits. Include mounting pads for shields.', criticality: 'low', tags: ['shielding', 'rf'], reference: 'Shielding Design' },
+                            { id: 'gen-3-5', text: 'Ground stitching vias around board perimeter', tooltip: 'Stitching vias reduce slot antennas', details: 'Place ground stitching vias around board perimeter and near connectors. Typically every 100-200mil.', criticality: 'medium', tags: ['stitching-vias', 'ground'], reference: 'EMI Containment' },
+                        ]
+                    },
+                    {
+                        name: '4. Mechanical & Environmental',
+                        juniorTip: 'Consider how the board will be mounted, handled, and used in its environment. Mechanical reliability is as important as electrical performance.',
+                        items: [
+                            { id: 'gen-4-1', text: 'Mounting holes with adequate clearance', tooltip: 'Mounting holes need clearance for screws', details: 'Mounting holes should have adequate clearance for screw heads. Include keepout for standoffs.', criticality: 'high', tags: ['mounting', 'holes'], reference: 'Mechanical Mounting' },
+                            { id: 'gen-4-2', text: 'Components not placed near mounting holes', tooltip: 'Components near mounting holes can be damaged', details: 'Keep components away from mounting holes (at least 100-200mil clearance).', criticality: 'high', tags: ['clearance', 'mounting'], reference: 'Component Placement' },
+                            { id: 'gen-4-3', text: 'Board corners rounded or chamfered', tooltip: 'Rounded corners are less likely to crack', details: 'Use rounded corners (minimum 30mil radius) or chamfers on board outline to reduce stress points.', criticality: 'low', tags: ['corners', 'reliability'], reference: 'Board Reliability' },
+                            { id: 'gen-4-4', text: 'Consideration for thermal expansion', tooltip: 'Different materials expand at different rates', details: 'For large boards or high-temperature applications, consider CTE mismatch between components and board.', criticality: 'medium', tags: ['thermal-expansion', 'cte'], reference: 'Thermal Stress' },
+                            { id: 'gen-4-5', text: 'Conformal coating keepouts if needed', tooltip: 'Some areas should not be coated', details: 'Define keepout areas for connectors, test points, and adjustment points if conformal coating will be applied.', criticality: 'low', tags: ['coating', 'keepout'], reference: 'Conformal Coating' },
+                        ]
+                    }
+                ]
+            }
+        };
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApplication();
+            setupEventListeners();
+            loadUserData();
+            // Check if user is logged in, if not show login modal
+            if (!APP_STATE.currentUser) {
+                openModal('loginModal');
+            } else {
+                loadTab('dfm');
+            }
+        });
+        
+        // ============================================================================
+        // CORE FUNCTIONS
+        // ============================================================================
+        
+        function initializeApplication() {
+            // Set current date
+            document.getElementById('startDate').valueAsDate = new Date();
+            
+            // Initialize users from localStorage
+            const savedUsers = localStorage.getItem('pcbUsers');
+            if (savedUsers) {
+                APP_STATE.users = JSON.parse(savedUsers);
+            } else {
+                // Start with empty users array - no default users
+                APP_STATE.users = [];
+                localStorage.setItem('pcbUsers', JSON.stringify(APP_STATE.users));
+            }
+            
+            // Initialize current user from localStorage
+            const savedCurrentUser = localStorage.getItem('pcbCurrentUser');
+            if (savedCurrentUser) {
+                APP_STATE.currentUser = JSON.parse(savedCurrentUser);
+                updateUserDisplay();
+            }
+            
+            // Initialize project data from localStorage
+            const savedProjectData = localStorage.getItem('pcbProjectData');
+            if (savedProjectData) {
+                APP_STATE.projectData = JSON.parse(savedProjectData);
+                Object.keys(APP_STATE.projectData).forEach(key => {
+                    const element = document.getElementById(key);
+                    if (element) element.value = APP_STATE.projectData[key];
+                });
+            }
+            
+            // Initialize user responses from localStorage
+            const savedResponses = localStorage.getItem('pcbUserResponses');
+            if (savedResponses) APP_STATE.userResponses = JSON.parse(savedResponses);
+            
+            // Initialize comments from localStorage
+            const savedComments = localStorage.getItem('pcbComments');
+            if (savedComments) APP_STATE.comments = JSON.parse(savedComments);
+            
+            // Initialize attachments from localStorage
+            const savedAttachments = localStorage.getItem('pcbAttachments');
+            if (savedAttachments) APP_STATE.attachments = JSON.parse(savedAttachments);
+            
+            // Update dashboard
+            updateDashboard();
+        }
+        
+        function loadUserData() {
+            console.log('Application initialized successfully');
+        }
+        
+        function setupEventListeners() {
+            // User login/logout
+            document.getElementById('userInfo').addEventListener('click', () => openModal('loginModal'));
+            document.getElementById('logoutBtn').addEventListener('click', logoutUser);
+            
+            // Login form
+            document.getElementById('newUserForm').addEventListener('submit', handleNewUser);
+            
+            // Tab switching
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab');
+                    loadTab(tabId);
+                });
+            });
+            
+            // Project info saving
+            document.querySelectorAll('.project-info-panel input, .project-info-panel select').forEach(element => {
+                element.addEventListener('change', function() {
+                    APP_STATE.projectData[this.id] = this.value;
+                    localStorage.setItem('pcbProjectData', JSON.stringify(APP_STATE.projectData));
+                });
+            });
+            
+            // Filter events
+            document.getElementById('criticalityFilter').addEventListener('change', function() {
+                APP_STATE.filters.criticality = this.value;
+                renderChecklist();
+            });
+            
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                APP_STATE.filters.status = this.value;
+                renderChecklist();
+            });
+            
+            document.getElementById('searchInput').addEventListener('input', function() {
+                APP_STATE.filters.search = this.value.toLowerCase();
+                renderChecklist();
+            });
+            
+            // Sidebar buttons - FIXED: Direct export with confirmation
+            document.getElementById('exportExcelBtn').addEventListener('click', () => {
+                if (confirm('Export the complete checklist to Excel format with multiple sheets?')) {
+                    exportToExcel();
+                }
+            });
+            
+            document.getElementById('exportPdfBtn').addEventListener('click', () => {
+                if (confirm('Generate a professional PDF report with images and comments?')) {
+                    exportToPDF();
+                }
+            });
+            
+            document.getElementById('exportSummaryBtn').addEventListener('click', () => {
+                if (confirm('Create a summary report with key findings?')) {
+                    exportSummary();
+                }
+            });
+            
+            document.getElementById('resetBtn').addEventListener('click', showResetModal);
+            document.getElementById('versionBtn').addEventListener('click', () => openModal('versionModal'));
+            document.getElementById('helpBtn').addEventListener('click', () => openModal('helpModal'));
+            document.getElementById('versionIndicator').addEventListener('click', () => openModal('versionModal'));
+            
+            // Reset confirmation
+            document.getElementById('confirmReset').addEventListener('click', resetAllData);
+            
+            // Modal close buttons
+            document.querySelectorAll('.close-modal').forEach(button => {
+                button.addEventListener('click', function() {
+                    const modal = this.closest('.modal');
+                    closeModal(modal.id);
+                });
+            });
+            
+            // Close modals when clicking outside
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) closeModal(this.id);
+                });
+            });
+        }
+        
+        function loadTab(tabId) {
+            if (!APP_STATE.currentUser) {
+                openModal('loginModal');
+                return;
+            }
+            
+            APP_STATE.currentTab = tabId;
+            renderChecklist();
+            updateDashboard();
+        }
+        
+        function renderChecklist() {
+            const container = document.getElementById('checklistContainer');
+            const categories = APP_STATE.checklistGroups[APP_STATE.currentTab];
+            
+            if (!categories) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px;">No checklist items found for this tab.</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            categories.forEach((category, catIndex) => {
+                // Filter items based on current filters
+                let filteredItems = category.items.filter(item => {
+                    // Criticality filter
+                    if (APP_STATE.filters.criticality !== 'all' && 
+                        item.criticality !== APP_STATE.filters.criticality) {
+                        return false;
+                    }
+                    
+                    // Status filter
+                    if (APP_STATE.filters.status !== 'all') {
+                        const response = APP_STATE.userResponses[item.id];
+                        if (APP_STATE.filters.status === 'unanswered' && response) return false;
+                        if (APP_STATE.filters.status === 'yes' && (!response || response.status !== 'yes')) return false;
+                        if (APP_STATE.filters.status === 'no' && (!response || response.status !== 'no')) return false;
+                        if (APP_STATE.filters.status === 'na' && (!response || response.status !== 'na')) return false;
+                    }
+                    
+                    // Search filter
+                    if (APP_STATE.filters.search) {
+                        const searchText = APP_STATE.filters.search;
+                        if (!item.text.toLowerCase().includes(searchText) &&
+                            !item.details.toLowerCase().includes(searchText) &&
+                            !item.tooltip.toLowerCase().includes(searchText) &&
+                            !item.reference.toLowerCase().includes(searchText)) {
+                            return false;
+                        }
+                    }
+                    
+                    return true;
+                });
+                
+                // Skip category if no items after filtering
+                if (filteredItems.length === 0) return;
+                
+                // Calculate category stats
+                const totalItems = category.items.length;
+                const completedItems = category.items.filter(item => {
+                    const response = APP_STATE.userResponses[item.id];
+                    return response && response.status === 'yes';
+                }).length;
+                
+                html += `
+                    <div class="category">
+                        <div class="category-header">
+                            <span>${category.name}</span>
+                            <span class="category-stats">${completedItems}/${totalItems}</span>
+                        </div>
+                        <div class="category-content">
+                `;
+                
+                // Add tip if available
+                if (category.juniorTip) {
+                    html += `<div class="junior-tip"><strong><i class="fas fa-graduation-cap"></i> Tip for Junior Engineers:</strong> ${category.juniorTip}</div>`;
+                }
+                if (category.expertTip) {
+                    html += `<div class="expert-tip"><strong><i class="fas fa-user-tie"></i> Expert Insight:</strong> ${category.expertTip}</div>`;
+                }
+                
+                // Add items
+                filteredItems.forEach((item, itemIndex) => {
+                    const response = APP_STATE.userResponses[item.id] || {};
+                    const comments = APP_STATE.comments[item.id] || [];
+                    const attachments = APP_STATE.attachments[item.id] || [];
+                    const isEditing = APP_STATE.editingCommentId === item.id;
+                    
+                    html += `
+                        <div class="checklist-item ${item.criticality}">
+                            <div class="item-content">
+                                <div class="item-header">
+                                    <span class="tooltip-container">
+                                        <span class="item-text">${item.text}</span>
+                                        <span class="tooltip-text">${item.tooltip}</span>
+                                    </span>
+                                    <span class="criticality-badge criticality-${item.criticality}">
+                                        ${item.criticality.toUpperCase()}
+                                    </span>
+                                </div>
+                                
+                                <div class="item-details">${item.details}</div>
+                                
+                                <div class="item-meta">
+                                    ${item.tags.map(tag => `<span class="item-tag">${tag}</span>`).join('')}
+                                    ${item.reference ? `<span class="item-reference"><i class="fas fa-book"></i> ${item.reference}</span>` : ''}
+                                </div>
+                                
+                                <!-- Comments Section -->
+                                <div class="item-comments">
+                                    <div class="comment-form">
+                                        <input type="text" id="comment-input-${item.id}" placeholder="Add comment or note...">
+                                        <button class="add-comment-icon-btn" data-item-id="${item.id}" title="Add comment">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                    </div>
+                                    <div class="comments-list" id="comments-list-${item.id}">
+                    `;
+                    
+                    // Render existing comments with hyperlink support
+                    comments.forEach((comment, commentIndex) => {
+                        const time = new Date(comment.timestamp).toLocaleString();
+                        const commentText = linkify(comment.text); // Hyperlink support
+                        
+                        // Check if this comment is being edited
+                        const isCommentEditing = APP_STATE.editingCommentIndex === commentIndex && APP_STATE.editingCommentItemId === item.id;
+                        
+                        if (isCommentEditing) {
+                            // Show edit form
+                            html += `
+                                <div class="comment">
+                                    <div class="comment-author">${comment.author}</div>
+                                    <div class="comment-edit-form">
+                                        <input type="text" class="comment-edit-input" id="edit-comment-${item.id}-${commentIndex}" value="${comment.text.replace(/"/g, '&quot;')}">
+                                        <button class="comment-edit-save-btn" data-item-id="${item.id}" data-comment-index="${commentIndex}">Save</button>
+                                        <button class="comment-edit-cancel-btn" data-item-id="${item.id}" data-comment-index="${commentIndex}">Cancel</button>
+                                    </div>
+                                    <div class="comment-time">${time}</div>
+                                </div>
+                            `;
+                        } else {
+                            // Show regular comment
+                            html += `
+                                <div class="comment">
+                                    <div class="comment-author">${comment.author}</div>
+                                    <div class="comment-text">${commentText}</div>
+                                    <div class="comment-time">${time}</div>
+                                    <div class="comment-actions">
+                                        <button class="comment-action-btn comment-edit-btn" data-item-id="${item.id}" data-comment-index="${commentIndex}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="comment-action-btn comment-delete-btn" data-item-id="${item.id}" data-comment-index="${commentIndex}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    html += `
+                                    </div>
+                                </div>
+                                
+                                <!-- Attachments Section -->
+                                <div class="attachments-container">
+                                    <div class="attachments-label">
+                                        <span class="file-input-wrapper">
+                                            <input type="file" class="file-input-hidden" id="file-input-${item.id}" multiple accept="image/*,.pdf,.txt,.doc,.docx">
+                                            <button class="file-input-trigger" data-item-id="${item.id}" title="Upload attachment">
+                                                <i class="fas fa-upload"></i> Attachments
+                                            </button>
+                                        </span>
+                                    </div>
+                                    <div class="attachments-list" id="attachments-list-${item.id}">
+                    `;
+                    
+                    // Render existing attachments
+                    attachments.forEach((attachment, attachmentIndex) => {
+                        html += `
+                            <div class="attachment-item">
+                                <i class="fas ${getFileIcon(attachment.type)} attachment-icon"></i>
+                                <span class="attachment-name">${attachment.name}</span>
+                                <span class="attachment-size">${formatFileSize(attachment.size)}</span>
+                                <div class="attachment-actions">
+                                    <button class="attachment-btn view" data-item-id="${item.id}" data-attachment-index="${attachmentIndex}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="attachment-btn delete" data-item-id="${item.id}" data-attachment-index="${attachmentIndex}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Status Options -->
+                            <div class="status-options">
+                                <div class="status-option ${response.status === 'yes' ? 'selected-yes' : ''}" 
+                                     data-item-id="${item.id}" data-status="yes">
+                                    <i class="fas fa-check-circle status-icon"></i>
+                                    <span class="status-label">Yes</span>
+                                </div>
+                                <div class="status-option ${response.status === 'no' ? 'selected-no' : ''}" 
+                                     data-item-id="${item.id}" data-status="no">
+                                    <i class="fas fa-times-circle status-icon"></i>
+                                    <span class="status-label">No</span>
+                                </div>
+                                <div class="status-option ${response.status === 'na' ? 'selected-na' : ''}" 
+                                     data-item-id="${item.id}" data-status="na">
+                                    <i class="fas fa-minus-circle status-icon"></i>
+                                    <span class="status-label">N/A</span>
+                                </div>
+                            </div>
+                            
+                            <div class="item-actions">
+                                <button class="item-action-btn edit-item" data-item-id="${item.id}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html || '<div style="text-align: center; padding: 40px;">No items match the current filters.</div>';
+            
+            // Add event listeners to dynamically created elements
+            addDynamicEventListeners();
+        }
+        
+        function addDynamicEventListeners() {
+            // Status option clicks
+            document.querySelectorAll('.status-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    const status = this.getAttribute('data-status');
+                    
+                    // Update status in state
+                    APP_STATE.userResponses[itemId] = {
+                        status: status,
+                        timestamp: new Date().toISOString(),
+                        user: APP_STATE.currentUser.name
+                    };
+                    
+                    // Save to localStorage
+                    localStorage.setItem('pcbUserResponses', JSON.stringify(APP_STATE.userResponses));
+                    
+                    // Update UI
+                    updateItemStatus(itemId, status);
+                    updateDashboard();
+                });
+            });
+            
+            // Add comment buttons (icon button)
+            document.querySelectorAll('.add-comment-icon-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    const input = document.getElementById(`comment-input-${itemId}`);
+                    const text = input.value.trim();
+                    
+                    if (text) {
+                        addComment(itemId, text);
+                        input.value = '';
+                    }
+                });
+            });
+            
+            // Comment enter key
+            document.querySelectorAll('.comment-form input').forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        const itemId = this.id.replace('comment-input-', '');
+                        const text = this.value.trim();
+                        
+                        if (text) {
+                            addComment(itemId, text);
+                            this.value = '';
+                        }
+                    }
+                });
+            });
+            
+            // Edit/delete comment buttons
+            document.querySelectorAll('.comment-edit-btn, .comment-delete-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    const commentIndex = parseInt(this.getAttribute('data-comment-index'));
+                    const isEdit = this.classList.contains('comment-edit-btn');
+                    
+                    if (isEdit) {
+                        // Set editing state
+                        APP_STATE.editingCommentItemId = itemId;
+                        APP_STATE.editingCommentIndex = commentIndex;
+                        renderChecklist();
+                    } else {
+                        deleteComment(itemId, commentIndex);
+                    }
+                });
+            });
+            
+            // Save comment edit buttons
+            document.querySelectorAll('.comment-edit-save-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    const commentIndex = parseInt(this.getAttribute('data-comment-index'));
+                    const input = document.getElementById(`edit-comment-${itemId}-${commentIndex}`);
+                    const newText = input.value.trim();
+                    
+                    if (newText) {
+                        saveCommentEdit(itemId, commentIndex, newText);
+                    }
+                });
+            });
+            
+            // Cancel comment edit buttons
+            document.querySelectorAll('.comment-edit-cancel-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    const commentIndex = parseInt(this.getAttribute('data-comment-index'));
+                    cancelCommentEdit(itemId, commentIndex);
+                });
+            });
+            
+            // File upload triggers
+            document.querySelectorAll('.file-input-trigger').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    document.getElementById(`file-input-${itemId}`).click();
+                });
+            });
+            
+            // File input changes
+            document.querySelectorAll('.file-input-hidden').forEach(input => {
+                input.addEventListener('change', function() {
+                    const itemId = this.id.replace('file-input-', '');
+                    handleFileUpload(itemId, this.files);
+                });
+            });
+            
+            // Attachment view/delete buttons
+            document.querySelectorAll('.attachment-btn.view, .attachment-btn.delete').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    const attachmentIndex = parseInt(this.getAttribute('data-attachment-index'));
+                    const isView = this.classList.contains('view');
+                    
+                    if (isView) {
+                        viewAttachment(itemId, attachmentIndex);
+                    } else {
+                        deleteAttachment(itemId, attachmentIndex);
+                    }
+                });
+            });
+            
+            // Edit item buttons
+            document.querySelectorAll('.edit-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const itemId = this.getAttribute('data-item-id');
+                    alert(`Edit functionality for item ${itemId} would open an edit form in a real application.`);
+                });
+            });
+        }
+        
+        function updateItemStatus(itemId, status) {
+            // Update visual status
+            const statusOptions = document.querySelectorAll(`[data-item-id="${itemId}"]`);
+            statusOptions.forEach(option => {
+                option.classList.remove('selected-yes', 'selected-no', 'selected-na');
+                if (option.getAttribute('data-status') === status) {
+                    option.classList.add(`selected-${status}`);
+                }
+            });
+            
+            // Update category stats
+            updateCategoryStats();
+        }
+        
+        function updateCategoryStats() {
+            document.querySelectorAll('.category').forEach(categoryDiv => {
+                const categoryName = categoryDiv.querySelector('.category-header span').textContent;
+                
+                // Find the category in current tab
+                const categories = APP_STATE.checklistGroups[APP_STATE.currentTab];
+                const category = categories.find(cat => cat.name === categoryName);
+                
+                if (category) {
+                    const totalItems = category.items.length;
+                    const completedItems = category.items.filter(item => {
+                        const response = APP_STATE.userResponses[item.id];
+                        return response && response.status === 'yes';
+                    }).length;
+                    
+                    const statsSpan = categoryDiv.querySelector('.category-stats');
+                    if (statsSpan) {
+                        statsSpan.textContent = `${completedItems}/${totalItems}`;
+                    }
+                }
+            });
+        }
+        
+        function updateDashboard() {
+            let totalItems = 0;
+            let completedItems = 0;
+            let criticalIssues = 0;
+            let unansweredCritical = 0;
+            let totalCriticalItems = 0;
+            
+            // Calculate across all tabs
+            Object.keys(APP_STATE.checklistGroups).forEach(tab => {
+                APP_STATE.checklistGroups[tab].forEach(category => {
+                    category.items.forEach(item => {
+                        totalItems++;
+                        const response = APP_STATE.userResponses[item.id];
+                        
+                        if (response && response.status === 'yes') {
+                            completedItems++;
+                        }
+                        
+                        if (item.criticality === 'critical') {
+                            totalCriticalItems++;
+                            if (!response || response.status !== 'yes') {
+                                criticalIssues++;
+                                if (!response) unansweredCritical++;
+                            }
+                        }
+                    });
+                });
+            });
+            
+            // Calculate risk score as percentage
+            const currentRiskScore = (criticalIssues * 10) + (unansweredCritical * 5);
+            const maxRiskScore = totalCriticalItems * 10;
+            let riskPercentage = 0;
+            if (maxRiskScore > 0) {
+                riskPercentage = Math.min(100, Math.round((currentRiskScore / maxRiskScore) * 100));
+            }
+            
+            const completionRate = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+            
+            // Update display
+            document.getElementById('totalItems').textContent = totalItems;
+            document.getElementById('completedItems').textContent = completedItems;
+            document.getElementById('criticalIssues').textContent = criticalIssues;
+            document.getElementById('riskScore').textContent = `${riskPercentage}%`;
+            document.getElementById('completionRate').textContent = `${completionRate}%`;
+            
+            // Update progress bar
+            document.getElementById('globalProgress').style.width = `${completionRate}%`;
+            document.getElementById('progressText').textContent = `${completionRate}% Complete`;
+            
+            // Color code risk score
+            const riskElement = document.getElementById('riskScore').closest('.stat-card');
+            riskElement.className = 'stat-card ' + 
+                (riskPercentage === 0 ? 'success' : 
+                 riskPercentage <= 20 ? 'success' :
+                 riskPercentage <= 50 ? 'warning' : 
+                 riskPercentage <= 80 ? 'critical' : 'critical');
+        }
+        
+        // ============================================================================
+        // USER MANAGEMENT FUNCTIONS
+        // ============================================================================
+        
+        function updateUserDisplay() {
+            if (APP_STATE.currentUser) {
+                document.getElementById('userAvatar').textContent = APP_STATE.currentUser.initials;
+                document.getElementById('userName').textContent = APP_STATE.currentUser.name;
+            } else {
+                document.getElementById('userAvatar').textContent = '?';
+                document.getElementById('userName').textContent = 'Click to Login';
+            }
+        }
+        
+        function handleNewUser(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('newUserName').value.trim();
+            const email = document.getElementById('newUserEmail').value.trim();
+            const role = document.getElementById('newUserRole').value;
+            
+            if (!name) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            // Generate initials
+            const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+            
+            // Create new user
+            const newUser = {
+                id: Date.now(),
+                name: name,
+                email: email || '',
+                role: role,
+                initials: initials,
+                lastLogin: new Date().toISOString()
+            };
+            
+            // Add to users array
+            APP_STATE.users.push(newUser);
+            localStorage.setItem('pcbUsers', JSON.stringify(APP_STATE.users));
+            
+            // Set as current user
+            APP_STATE.currentUser = newUser;
+            localStorage.setItem('pcbCurrentUser', JSON.stringify(newUser));
+            
+            // Update display
+            updateUserDisplay();
+            
+            // Close modal and load checklist
+            closeModal('loginModal');
+            loadTab('dfm');
+            
+            // Clear form
+            document.getElementById('newUserForm').reset();
+        }
+        
+        function deleteUser(userId) {
+            if (confirm('Are you sure you want to delete this user account? This will remove the user from the system but not their checklist data.')) {
+                // Remove user from array
+                APP_STATE.users = APP_STATE.users.filter(user => user.id !== userId);
+                
+                // If the deleted user is the current user, logout
+                if (APP_STATE.currentUser && APP_STATE.currentUser.id === userId) {
+                    APP_STATE.currentUser = null;
+                    localStorage.removeItem('pcbCurrentUser');
+                    updateUserDisplay();
+                }
+                
+                // Save updated users list
+                localStorage.setItem('pcbUsers', JSON.stringify(APP_STATE.users));
+                
+                // Refresh user list in login modal
+                populateUserList();
+            }
+        }
+        
+        function logoutUser() {
+            if (confirm('Are you sure you want to logout?')) {
+                APP_STATE.currentUser = null;
+                localStorage.removeItem('pcbCurrentUser');
+                updateUserDisplay();
+                openModal('loginModal');
+            }
+        }
+        
+        // ============================================================================
+        // COMMENT FUNCTIONS WITH HYPERLINK SUPPORT AND INLINE EDITING
+        // ============================================================================
+        
+        // Function to convert URLs in text to clickable links
+        function linkify(text) {
+            if (!text) return '';
+            
+            // URL pattern - FIXED: Improved regex to capture complete URLs including special characters
+            const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;()]*[-A-Z0-9+&@#\/%=~_|()])/ig;
+            
+            // Email pattern
+            const emailPattern = /(\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b)/g;
+            
+            let linkedText = text;
+            
+            // Replace URLs
+            linkedText = linkedText.replace(urlPattern, function(url) {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer" title="Open link">${url}</a>`;
+            });
+            
+            // Replace emails
+            linkedText = linkedText.replace(emailPattern, function(email) {
+                return `<a href="mailto:${email}" title="Send email">${email}</a>`;
+            });
+            
+            return linkedText;
+        }
+        
+        // Function to extract URLs from text for PDF export
+        function extractUrls(text) {
+            if (!text) return [];
+            const urlPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;()]*[-A-Z0-9+&@#\/%=~_|()])/ig;
+            const matches = text.match(urlPattern);
+            return matches ? matches : [];
+        }
+        
+        function addComment(itemId, text) {
+            if (!APP_STATE.comments[itemId]) {
+                APP_STATE.comments[itemId] = [];
+            }
+            
+            APP_STATE.comments[itemId].push({
+                author: APP_STATE.currentUser ? APP_STATE.currentUser.name : 'Unknown User',
+                text: text,
+                timestamp: new Date().toISOString()
+            });
+            
+            localStorage.setItem('pcbComments', JSON.stringify(APP_STATE.comments));
+            renderChecklist();
+        }
+        
+        function saveCommentEdit(itemId, commentIndex, newText) {
+            const comments = APP_STATE.comments[itemId];
+            if (comments && comments[commentIndex]) {
+                comments[commentIndex].text = newText;
+                comments[commentIndex].edited = true;
+                comments[commentIndex].editTimestamp = new Date().toISOString();
+                
+                localStorage.setItem('pcbComments', JSON.stringify(APP_STATE.comments));
+                
+                // Clear editing state
+                APP_STATE.editingCommentItemId = null;
+                APP_STATE.editingCommentIndex = null;
+                
+                renderChecklist();
+            }
+        }
+        
+        function cancelCommentEdit(itemId, commentIndex) {
+            // Clear editing state
+            APP_STATE.editingCommentItemId = null;
+            APP_STATE.editingCommentIndex = null;
+            renderChecklist();
+        }
+        
+        function deleteComment(itemId, commentIndex) {
+            if (confirm('Delete this comment?')) {
+                const comments = APP_STATE.comments[itemId];
+                if (comments) {
+                    comments.splice(commentIndex, 1);
+                    localStorage.setItem('pcbComments', JSON.stringify(APP_STATE.comments));
+                    renderChecklist();
+                }
+            }
+        }
+        
+        // ============================================================================
+        // ATTACHMENT FUNCTIONS WITH IMAGE SIZE VALIDATION
+        // ============================================================================
+        
+        async function handleFileUpload(itemId, files) {
+            if (!files || files.length === 0) return;
+            
+            if (!APP_STATE.attachments[itemId]) {
+                APP_STATE.attachments[itemId] = [];
+            }
+            
+            for (const file of Array.from(files)) {
+                // Check file size (5MB limit)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`File ${file.name} is too large (max 5MB)`);
+                    continue;
+                }
+                
+                // Check if it's an image and validate size
+                if (file.type.startsWith('image/')) {
+                    const imageInfo = await getImageDimensions(file);
+                    
+                    // Prompt user about image size viability
+                    if (imageInfo.width > 2000 || imageInfo.height > 2000) {
+                        const proceed = confirm(
+                            `The image "${file.name}" is ${imageInfo.width}x${imageInfo.height} pixels.\n` +
+                            `Large images may affect PDF export quality and performance.\n` +
+                            `Do you want to continue?`
+                        );
+                        if (!proceed) continue;
+                    }
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    APP_STATE.attachments[itemId].push({
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        data: e.target.result,
+                        timestamp: new Date().toISOString(),
+                        uploadedBy: APP_STATE.currentUser ? APP_STATE.currentUser.name : 'Unknown'
+                    });
+                    
+                    localStorage.setItem('pcbAttachments', JSON.stringify(APP_STATE.attachments));
+                    renderChecklist();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function getImageDimensions(file) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    resolve({
+                        width: this.width,
+                        height: this.height,
+                        file: file
+                    });
+                };
+                img.src = URL.createObjectURL(file);
+            });
+        }
+        
+        function viewAttachment(itemId, attachmentIndex) {
+            const attachments = APP_STATE.attachments[itemId];
+            if (attachments && attachments[attachmentIndex]) {
+                const attachment = attachments[attachmentIndex];
+                
+                document.getElementById('attachmentPreview').src = attachment.data;
+                document.getElementById('attachmentPreview').style.objectFit = 'contain';
+                document.getElementById('attachmentInfo').innerHTML = `
+                    <div><strong>File Name:</strong> ${attachment.name}</div>
+                    <div><strong>File Type:</strong> ${attachment.type}</div>
+                    <div><strong>File Size:</strong> ${formatFileSize(attachment.size)}</div>
+                    <div><strong>Uploaded By:</strong> ${attachment.uploadedBy || 'Unknown'}</div>
+                    <div><strong>Uploaded:</strong> ${new Date(attachment.timestamp).toLocaleString()}</div>
+                `;
+                
+                openModal('attachmentModal');
+            }
+        }
+        
+        function deleteAttachment(itemId, attachmentIndex) {
+            if (confirm('Delete this attachment?')) {
+                const attachments = APP_STATE.attachments[itemId];
+                if (attachments) {
+                    attachments.splice(attachmentIndex, 1);
+                    localStorage.setItem('pcbAttachments', JSON.stringify(APP_STATE.attachments));
+                    renderChecklist();
+                }
+            }
+        }
+        
+        function getFileIcon(fileType) {
+            if (fileType.startsWith('image/')) return 'fa-file-image';
+            if (fileType === 'application/pdf') return 'fa-file-pdf';
+            if (fileType.includes('word') || fileType.includes('document')) return 'fa-file-word';
+            if (fileType.includes('text')) return 'fa-file-alt';
+            return 'fa-file';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // ============================================================================
+        // MODAL FUNCTIONS
+        // ============================================================================
+        
+        function openModal(modalId) {
+            // If opening login modal, populate user list
+            if (modalId === 'loginModal') {
+                populateUserList();
+            }
+            
+            document.getElementById(modalId).style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+        
+        function populateUserList() {
+            const userList = document.getElementById('loginUserList');
+            userList.innerHTML = '';
+            
+            // Show message if no users exist
+            if (APP_STATE.users.length === 0) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.style.padding = '20px';
+                emptyDiv.style.textAlign = 'center';
+                emptyDiv.style.color = '#666';
+                emptyDiv.innerHTML = '<i class="fas fa-users" style="font-size: 2rem; margin-bottom: 10px; display: block;"></i>No users yet. Create a new user below.';
+                userList.appendChild(emptyDiv);
+                return;
+            }
+            
+            APP_STATE.users.forEach(user => {
+                const userDiv = document.createElement('div');
+                userDiv.className = 'login-user-item';
+                userDiv.innerHTML = `
+                    <div class="login-user-info">
+                        <div class="login-user-avatar">${user.initials}</div>
+                        <div>
+                            <div><strong>${user.name}</strong></div>
+                            <div style="font-size: 0.85rem; color: #666;">${user.role} • Last login: ${new Date(user.lastLogin).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+                    <div class="login-user-actions">
+                        <button class="user-delete-btn" data-user-id="${user.id}" title="Delete user">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                userDiv.addEventListener('click', (e) => {
+                    // Don't trigger if clicking on delete button
+                    if (!e.target.closest('.user-delete-btn')) {
+                        // Update last login
+                        user.lastLogin = new Date().toISOString();
+                        localStorage.setItem('pcbUsers', JSON.stringify(APP_STATE.users));
+                        
+                        // Set as current user
+                        APP_STATE.currentUser = user;
+                        localStorage.setItem('pcbCurrentUser', JSON.stringify(user));
+                        
+                        // Update display and close modal
+                        updateUserDisplay();
+                        closeModal('loginModal');
+                        loadTab('dfm');
+                    }
+                });
+                
+                // Add delete button event listener
+                const deleteBtn = userDiv.querySelector('.user-delete-btn');
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteUser(user.id);
+                });
+                
+                userList.appendChild(userDiv);
+            });
+        }
+        
+        function showResetModal() {
+            openModal('resetModal');
+        }
+        
+        // ============================================================================
+        // EXPORT FUNCTIONS - FIXED VERSION
+        // ============================================================================
+        
+        // Enhanced Excel Export with Multiple Sheets
+        function exportToExcel() {
+            try {
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                
+                // 1. Project Information Sheet
+                const projectInfoData = [
+                    ['PCB Design Checklist - Project Information'],
+                    [''],
+                    ['Field', 'Value'],
+                    ['Designer\'s Name', APP_STATE.projectData.designerName || ''],
+                    ['Spec/Project Name', APP_STATE.projectData.spec || ''],
+                    ['HW Type', APP_STATE.projectData.hwType || ''],
+                    ['Generic/Part Number', APP_STATE.projectData.generic || ''],
+                    ['Board Record #', APP_STATE.projectData.brNumber || ''],
+                    ['ECR# (Engineering Change)', APP_STATE.projectData.ecrNumber || ''],
+                    ['Template Used', APP_STATE.projectData.template || ''],
+                    ['Start Date', APP_STATE.projectData.startDate || ''],
+                    ['Target Date', APP_STATE.projectData.endDate || ''],
+                    ['Export Date', new Date().toLocaleDateString()],
+                    ['Exported By', APP_STATE.currentUser ? APP_STATE.currentUser.name : 'Unknown'],
+                    [''],
+                    ['Summary Statistics'],
+                    ['Total Items', document.getElementById('totalItems').textContent],
+                    ['Completed Items', document.getElementById('completedItems').textContent],
+                    ['Critical Issues', document.getElementById('criticalIssues').textContent],
+                    ['Risk Score', document.getElementById('riskScore').textContent],
+                    ['Completion Rate', document.getElementById('completionRate').textContent]
+                ];
+                
+                const projectInfoSheet = XLSX.utils.aoa_to_sheet(projectInfoData);
+                XLSX.utils.book_append_sheet(wb, projectInfoSheet, 'Project Info');
+                
+                // 2. DFM Sheet
+                const dfmData = createChecklistSheetData('dfm', 'DFM - Design for Manufacturing');
+                const dfmSheet = XLSX.utils.aoa_to_sheet(dfmData);
+                XLSX.utils.book_append_sheet(wb, dfmSheet, 'DFM');
+                
+                // 3. DFA Sheet
+                const dfaData = createChecklistSheetData('dfa', 'DFA - Design for Assembly');
+                const dfaSheet = XLSX.utils.aoa_to_sheet(dfaData);
+                XLSX.utils.book_append_sheet(wb, dfaSheet, 'DFA');
+                
+                // 4. DFT Sheet
+                const dftData = createChecklistSheetData('dft', 'DFT - Design for Test');
+                const dftSheet = XLSX.utils.aoa_to_sheet(dftData);
+                XLSX.utils.book_append_sheet(wb, dftSheet, 'DFT');
+                
+                // 5. General PCB Layout Sheet
+                const generalData = createChecklistSheetData('general', 'General PCB Layout');
+                const generalSheet = XLSX.utils.aoa_to_sheet(generalData);
+                XLSX.utils.book_append_sheet(wb, generalSheet, 'General');
+                
+                // 6. Summary Sheet
+                const summaryData = createSummarySheetData();
+                const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+                
+                // Generate filename
+                const boardRecord = APP_STATE.projectData.brNumber || APP_STATE.projectData.spec || 'PCB_Design';
+                const date = new Date().toISOString().split('T')[0];
+                const filename = `${boardRecord}_Checklist_${date}.xlsx`;
+                
+                // Export
+                XLSX.writeFile(wb, filename);
+                
+                alert(`Checklist exported to ${filename} with 6 separate sheets.`);
+            } catch (error) {
+                alert('Error exporting to Excel: ' + error.message);
+            }
+        }
+        
+        function createChecklistSheetData(tabId, sheetTitle) {
+            const data = [
+                [`${sheetTitle} Checklist`],
+                [''],
+                ['Category', 'Item ID', 'Description', 'Criticality', 'Status', 'Comments', 'Attachments', 'Reference']
+            ];
+            
+            const categories = APP_STATE.checklistGroups[tabId];
+            if (categories) {
+                categories.forEach(category => {
+                    category.items.forEach(item => {
+                        const response = APP_STATE.userResponses[item.id] || {};
+                        const comments = APP_STATE.comments[item.id] || [];
+                        const attachments = APP_STATE.attachments[item.id] || [];
+                        
+                        data.push([
+                            category.name,
+                            item.id,
+                            item.text,
+                            item.criticality.toUpperCase(),
+                            response.status || 'Not Answered',
+                            comments.map(c => `${c.author}: ${c.text}`).join('\n'),
+                            attachments.map(a => a.name).join(', '),
+                            item.reference || ''
+                        ]);
+                    });
+                });
+            }
+            
+            return data;
+        }
+        
+        function createSummarySheetData() {
+            const data = [
+                ['PCB Design Checklist - Summary Report'],
+                [''],
+                ['Summary Statistics'],
+                ['Total Items', document.getElementById('totalItems').textContent],
+                ['Completed Items', document.getElementById('completedItems').textContent],
+                ['Critical Issues', document.getElementById('criticalIssues').textContent],
+                ['Risk Score', document.getElementById('riskScore').textContent],
+                ['Completion Rate', document.getElementById('completionRate').textContent],
+                [''],
+                ['Critical Issues Requiring Attention:']
+            ];
+            
+            // Add critical issues
+            let hasCriticalIssues = false;
+            Object.keys(APP_STATE.checklistGroups).forEach(tab => {
+                APP_STATE.checklistGroups[tab].forEach(category => {
+                    category.items.forEach(item => {
+                        if (item.criticality === 'critical') {
+                            const response = APP_STATE.userResponses[item.id];
+                            if (!response || response.status !== 'yes') {
+                                hasCriticalIssues = true;
+                                data.push([`- ${item.text}`]);
+                                data.push([`  Category: ${category.name}, Status: ${response ? response.status : 'Not Answered'}`]);
+                            }
+                        }
+                    });
+                });
+            });
+            
+            if (!hasCriticalIssues) {
+                data.push(['No critical issues found.']);
+            }
+            
+            return data;
+        }
+        
+        // Enhanced PDF Export with Images and Hyperlinked Comments - FIXED: Complete URL preservation
+        async function exportToPDF() {
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                let yPos = 20;
+                
+                // Title
+                doc.setFontSize(20);
+                doc.text('PCB Design Checklist Report', 105, yPos, { align: 'center' });
+                yPos += 10;
+                
+                // Project Info
+                doc.setFontSize(11);
+                doc.text(`Project: ${APP_STATE.projectData.spec || 'Unnamed Project'}`, 20, yPos);
+                doc.text(`Designer: ${APP_STATE.projectData.designerName || 'Unknown Designer'}`, 20, yPos + 7);
+                doc.text(`Board Record #: ${APP_STATE.projectData.brNumber || 'Not specified'}`, 20, yPos + 14);
+                doc.text(`Export Date: ${new Date().toLocaleDateString()}`, 20, yPos + 21);
+                
+                doc.text(`HW Type: ${APP_STATE.projectData.hwType || 'Not specified'}`, 120, yPos);
+                doc.text(`ECR #: ${APP_STATE.projectData.ecrNumber || 'Not specified'}`, 120, yPos + 7);
+                doc.text(`Exported By: ${APP_STATE.currentUser ? APP_STATE.currentUser.name : 'Unknown'}`, 120, yPos + 14);
+                yPos += 30;
+                
+                // Summary
+                doc.setFontSize(14);
+                doc.text('Summary', 20, yPos);
+                yPos += 7;
+                
+                doc.setFontSize(10);
+                doc.text(`Total Items: ${document.getElementById('totalItems').textContent}`, 20, yPos);
+                doc.text(`Completed: ${document.getElementById('completedItems').textContent}`, 80, yPos);
+                doc.text(`Critical Issues: ${document.getElementById('criticalIssues').textContent}`, 140, yPos);
+                yPos += 10;
+                
+                doc.text(`Risk Score: ${document.getElementById('riskScore').textContent}`, 20, yPos);
+                doc.text(`Completion Rate: ${document.getElementById('completionRate').textContent}`, 80, yPos);
+                yPos += 15;
+                
+                // Checklist items by tab
+                for (const [tabKey, tabName] of Object.entries({
+                    dfm: 'DFM - Design for Manufacturing',
+                    dfa: 'DFA - Design for Assembly', 
+                    dft: 'DFT - Design for Test',
+                    general: 'General PCB Layout'
+                })) {
+                    if (yPos > 270) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    doc.setFontSize(12);
+                    doc.setTextColor(0, 0, 128);
+                    doc.text(tabName, 20, yPos);
+                    doc.setTextColor(0, 0, 0);
+                    yPos += 7;
+                    
+                    const categories = APP_STATE.checklistGroups[tabKey];
+                    if (categories) {
+                        for (const category of categories) {
+                            if (yPos > 270) {
+                                doc.addPage();
+                                yPos = 20;
+                            }
+                            
+                            doc.setFontSize(11);
+                            doc.setFont(undefined, 'bold');
+                            doc.text(category.name, 20, yPos);
+                            doc.setFont(undefined, 'normal');
+                            yPos += 5;
+                            
+                            for (const item of category.items) {
+                                if (yPos > 270) {
+                                    doc.addPage();
+                                    yPos = 20;
+                                }
+                                
+                                const response = APP_STATE.userResponses[item.id] || {};
+                                const comments = APP_STATE.comments[item.id] || [];
+                                
+                                // Status text with color
+                                let statusText;
+                                let statusColor;
+                                if (response.status === 'yes') {
+                                    statusText = '[YES]';
+                                    statusColor = [0, 128, 0]; // Green
+                                } else if (response.status === 'no') {
+                                    statusText = '[NO]';
+                                    statusColor = [255, 0, 0]; // Red
+                                } else if (response.status === 'na') {
+                                    statusText = '[N/A]';
+                                    statusColor = [128, 128, 128]; // Grey
+                                } else {
+                                    statusText = '[?]';
+                                    statusColor = [255, 165, 0]; // Orange/Yellow
+                                }
+                                
+                                // Item text (truncated if too long)
+                                const itemText = item.text.length > 80 ? item.text.substring(0, 80) + '...' : item.text;
+                                
+                                // Draw status text with color and bold
+                                doc.setFontSize(10);
+                                doc.setTextColor(...statusColor);
+                                doc.setFont(undefined, 'bold');
+                                doc.text(statusText, 20, yPos);
+                                doc.setTextColor(0, 0, 0);
+                                doc.setFont(undefined, 'normal');
+                                
+                                // Item text
+                                doc.text(itemText, 35, yPos);
+                                yPos += 5;
+                                
+                                // Comments
+                                if (comments.length > 0) {
+                                    doc.setFontSize(9);
+                                    doc.setTextColor(100, 100, 100);
+                                    for (const comment of comments) {
+                                        // Extract URLs from comments
+                                        const urls = extractUrls(comment.text);
+                                        let commentText = comment.text;
+                                        
+                                        // Replace URLs with placeholders to avoid truncation
+                                        urls.forEach((url, index) => {
+                                            commentText = commentText.replace(url, `[URL${index}]`);
+                                        });
+                                        
+                                        // Display comment text
+                                        const commentLine = `${comment.author}: ${commentText}`;
+                                        const lines = doc.splitTextToSize(commentLine, 150);
+                                        
+                                        for (const line of lines) {
+                                            if (yPos > 270) {
+                                                doc.addPage();
+                                                yPos = 20;
+                                            }
+                                            doc.text(line, 35, yPos);
+                                            yPos += 4;
+                                        }
+                                        
+                                        // Display URLs separately with full preservation
+                                        if (urls.length > 0) {
+                                            doc.setTextColor(0, 0, 150);
+                                            urls.forEach((url, index) => {
+                                                if (yPos > 270) {
+                                                    doc.addPage();
+                                                    yPos = 20;
+                                                }
+                                                
+                                                // Check if URL is very long
+                                                if (url.length > 100) {
+                                                    doc.setFontSize(8);
+                                                    doc.text(`  [URL${index}]: (Long URL - requires manual copy-paste)`, 35, yPos);
+                                                    yPos += 4;
+                                                    
+                                                    // Split long URL into multiple lines
+                                                    const urlLines = splitLongText(url, 120);
+                                                    for (const urlLine of urlLines) {
+                                                        if (yPos > 270) {
+                                                            doc.addPage();
+                                                            yPos = 20;
+                                                        }
+                                                        doc.text(`    ${urlLine}`, 35, yPos);
+                                                        yPos += 4;
+                                                    }
+                                                    
+                                                    // Add note about manual copy-paste
+                                                    doc.setFontSize(7);
+                                                    doc.setTextColor(128, 0, 0);
+                                                    doc.text('    Note: Due to URL length limitations in PDF, this link requires manual copy-paste.', 35, yPos);
+                                                    yPos += 4;
+                                                    doc.setTextColor(0, 0, 150);
+                                                    doc.setFontSize(8);
+                                                } else {
+                                                    // Display shorter URLs normally
+                                                    doc.text(`  [URL${index}]: ${url}`, 35, yPos);
+                                                    yPos += 4;
+                                                }
+                                            });
+                                            doc.setTextColor(100, 100, 100);
+                                        }
+                                    }
+                                    doc.setTextColor(0, 0, 0);
+                                    doc.setFontSize(10);
+                                }
+                                
+                                yPos += 3;
+                            }
+                            
+                            yPos += 3;
+                        }
+                    }
+                    
+                    yPos += 5;
+                }
+                
+                // Add image attachments page if there are images
+                const allAttachments = [];
+                const itemIdToText = {};
+                
+                // Build mapping of item IDs to item texts
+                Object.keys(APP_STATE.checklistGroups).forEach(tab => {
+                    APP_STATE.checklistGroups[tab].forEach(category => {
+                        category.items.forEach(item => {
+                            itemIdToText[item.id] = item.text;
+                        });
+                    });
+                });
+                
+                // Collect all image attachments with their item context
+                Object.keys(APP_STATE.attachments).forEach(itemId => {
+                    const attachments = APP_STATE.attachments[itemId];
+                    attachments.forEach(attachment => {
+                        if (attachment.type.startsWith('image/')) {
+                            allAttachments.push({
+                                ...attachment,
+                                itemId: itemId,
+                                itemText: itemIdToText[itemId] || 'Unknown Item'
+                            });
+                        }
+                    });
+                });
+                
+                if (allAttachments.length > 0) {
+                    doc.addPage();
+                    yPos = 20;
+                    
+                    doc.setFontSize(16);
+                    doc.text('Attachment Images', 105, yPos, { align: 'center' });
+                    yPos += 10;
+                    
+                    doc.setFontSize(10);
+                    doc.text('Note: Image thumbnails are included below for reference.', 20, yPos);
+                    yPos += 10;
+                    
+                    // Process images with item context
+                    for (const attachment of allAttachments) {
+                        if (yPos > 250) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        
+                        // Item text with bullet - FIXED: Added bullet before item text
+                        doc.setFontSize(10);
+                        doc.setFont(undefined, 'bold');
+                        doc.text('• ' + (attachment.itemText.length > 100 ? 
+                            attachment.itemText.substring(0, 100) + '...' : attachment.itemText), 20, yPos);
+                        doc.setFont(undefined, 'normal');
+                        yPos += 5;
+                        
+                        // Image info
+                        doc.setFontSize(9);
+                        doc.text(`  Image: ${attachment.name}`, 20, yPos);
+                        yPos += 4;
+                        doc.text(`  Size: ${formatFileSize(attachment.size)} | Uploaded: ${new Date(attachment.timestamp).toLocaleDateString()}`, 20, yPos);
+                        yPos += 10;
+                        
+                        try {
+                            // Add image to PDF
+                            const img = new Image();
+                            img.src = attachment.data;
+                            
+                            await new Promise((resolve) => {
+                                img.onload = resolve;
+                            });
+                            
+                            const maxWidth = 150;
+                            const maxHeight = 100;
+                            let imgWidth = img.width;
+                            let imgHeight = img.height;
+                            
+                            // Scale image if too large
+                            if (imgWidth > maxWidth) {
+                                const ratio = maxWidth / imgWidth;
+                                imgWidth = maxWidth;
+                                imgHeight = imgHeight * ratio;
+                            }
+                            if (imgHeight > maxHeight) {
+                                const ratio = maxHeight / imgHeight;
+                                imgHeight = maxHeight;
+                                imgWidth = imgWidth * ratio;
+                            }
+                            
+                            if (yPos + imgHeight > 270) {
+                                doc.addPage();
+                                yPos = 20;
+                            }
+                            
+                            // Extract base64 data
+                            const base64Data = attachment.data.split(',')[1];
+                            const mimeType = attachment.type;
+                            const imageType = mimeType.split('/')[1].toUpperCase();
+                            
+                            doc.addImage(base64Data, imageType, 20, yPos, imgWidth, imgHeight);
+                            yPos += imgHeight + 15;
+                        } catch (error) {
+                            console.error('Error embedding image:', error);
+                            doc.text('(Image could not be embedded)', 20, yPos);
+                            yPos += 10;
+                        }
+                    }
+                }
+                
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(8);
+                    doc.text(`Page ${i} of ${pageCount}`, 105, 290, { align: 'center' });
+                    doc.text(`© ${new Date().getFullYear()} PCB Design Checklist System v4.1.3`, 105, 295, { align: 'center' });
+                }
+                
+                // Save PDF
+                const boardRecord = APP_STATE.projectData.brNumber || APP_STATE.projectData.spec || 'PCB_Design';
+                const safeBoardRecord = boardRecord.replace(/[^a-z0-9]/gi, '_');
+                const dateStr = new Date().toISOString().split('T')[0];
+                const filename = `${safeBoardRecord}_Checklist_${dateStr}.pdf`;
+                
+                doc.save(filename);
+                
+                alert(`Checklist exported to ${filename} with images and comments.`);
+            } catch (error) {
+                alert('Error exporting to PDF: ' + error.message);
+            }
+        }
+        
+        // Helper function to split long text
+        function splitLongText(text, maxLength) {
+            const lines = [];
+            let currentLine = '';
+            
+            for (let i = 0; i < text.length; i++) {
+                currentLine += text[i];
+                
+                if (currentLine.length >= maxLength || i === text.length - 1) {
+                    lines.push(currentLine);
+                    currentLine = '';
+                }
+            }
+            
+            return lines;
+        }
+        
+        function exportSummary() {
+            try {
+                let summary = 'PCB DESIGN CHECKLIST SUMMARY\n';
+                summary += '============================\n\n';
+                
+                // Project info
+                summary += 'PROJECT INFORMATION:\n';
+                summary += `Designer: ${APP_STATE.projectData.designerName || 'Not specified'}\n`;
+                summary += `Project: ${APP_STATE.projectData.spec || 'Not specified'}\n`;
+                summary += `HW Type: ${APP_STATE.projectData.hwType || 'Not specified'}\n`;
+                summary += `Generic/Part #: ${APP_STATE.projectData.generic || 'Not specified'}\n`;
+                summary += `Board Record #: ${APP_STATE.projectData.brNumber || 'Not specified'}\n`;
+                summary += `ECR #: ${APP_STATE.projectData.ecrNumber || 'Not specified'}\n`;
+                summary += `Template: ${APP_STATE.projectData.template || 'Not specified'}\n`;
+                summary += `Start Date: ${APP_STATE.projectData.startDate || 'Not specified'}\n`;
+                summary += `Target Date: ${APP_STATE.projectData.endDate || 'Not specified'}\n`;
+                summary += `Report Date: ${new Date().toLocaleDateString()}\n\n`;
+                
+                // Overall stats
+                summary += 'OVERALL STATISTICS:\n';
+                summary += `Total Items: ${document.getElementById('totalItems').textContent}\n`;
+                summary += `Completed: ${document.getElementById('completedItems').textContent}\n`;
+                summary += `Critical Issues: ${document.getElementById('criticalIssues').textContent}\n`;
+                summary += `Risk Score: ${document.getElementById('riskScore').textContent}\n`;
+                summary += `Completion: ${document.getElementById('completionRate').textContent}\n\n`;
+                
+                // Critical issues summary
+                summary += 'CRITICAL ISSUES REQUIRING ATTENTION:\n';
+                let hasCriticalIssues = false;
+                
+                Object.keys(APP_STATE.checklistGroups).forEach(tab => {
+                    APP_STATE.checklistGroups[tab].forEach(category => {
+                        category.items.forEach(item => {
+                            if (item.criticality === 'critical') {
+                                const response = APP_STATE.userResponses[item.id];
+                                if (!response || response.status !== 'yes') {
+                                    hasCriticalIssues = true;
+                                    summary += `- ${item.text}\n`;
+                                    summary += `  Category: ${category.name}\n`;
+                                    summary += `  Status: ${response ? response.status : '?'}\n`;
+                                    summary += `  Reference: ${item.reference || 'None'}\n\n`;
+                                }
+                            }
+                        });
+                    });
+                });
+                
+                if (!hasCriticalIssues) {
+                    summary += 'No critical issues found. Good job!\n\n';
+                }
+                
+                // Tab completion rates
+                summary += 'COMPLETION BY CATEGORY:\n';
+                Object.keys(APP_STATE.checklistGroups).forEach(tab => {
+                    let tabItems = 0;
+                    let tabCompleted = 0;
+                    
+                    APP_STATE.checklistGroups[tab].forEach(category => {
+                        category.items.forEach(item => {
+                            tabItems++;
+                            const response = APP_STATE.userResponses[item.id];
+                            if (response && response.status === 'yes') {
+                                tabCompleted++;
+                            }
+                        });
+                    });
+                    
+                    const rate = tabItems > 0 ? Math.round((tabCompleted / tabItems) * 100) : 0;
+                    summary += `${tab.toUpperCase()}: ${tabCompleted}/${tabItems} (${rate}%)\n`;
+                });
+                
+                // Attachments summary
+                summary += '\nATTACHMENTS SUMMARY:\n';
+                let totalAttachments = 0;
+                let totalImages = 0;
+                Object.keys(APP_STATE.attachments).forEach(itemId => {
+                    totalAttachments += APP_STATE.attachments[itemId].length;
+                    totalImages += APP_STATE.attachments[itemId].filter(a => a.type.startsWith('image/')).length;
+                });
+                
+                summary += `Total Attachments: ${totalAttachments}\n`;
+                summary += `Image Attachments: ${totalImages}\n`;
+                if (totalAttachments > 0) {
+                    Object.keys(APP_STATE.attachments).forEach(itemId => {
+                        const attachments = APP_STATE.attachments[itemId];
+                        if (attachments.length > 0) {
+                            summary += `- Item ${itemId}: ${attachments.length} attachment(s)\n`;
+                        }
+                    });
+                }
+                
+                // Generate filename and download
+                const boardRecord = APP_STATE.projectData.brNumber || APP_STATE.projectData.spec || 'PCB_Design';
+                const date = new Date().toISOString().split('T')[0];
+                const filename = `${boardRecord.replace(/[^a-z0-9]/gi, '_')}_Summary_${date}.txt`;
+                
+                const blob = new Blob([summary], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert(`Summary exported to ${filename}`);
+            } catch (error) {
+                alert('Error exporting summary: ' + error.message);
+            }
+        }
+        
+        // ============================================================================
+        // RESET FUNCTION
+        // ============================================================================
+        
+        function resetAllData() {
+            if (confirm('Are you absolutely sure? This will delete all your work on this checklist.')) {
+                APP_STATE.userResponses = {};
+                APP_STATE.comments = {};
+                APP_STATE.attachments = {};
+                
+                localStorage.removeItem('pcbUserResponses');
+                localStorage.removeItem('pcbComments');
+                localStorage.removeItem('pcbAttachments');
+                
+                renderChecklist();
+                updateDashboard();
+                closeModal('resetModal');
+                
+                alert('Checklist has been reset to its initial state.');
+            }
+        }
+        
+        // ============================================================================
+        // UTILITY FUNCTIONS
+        // ============================================================================
+        
+        // Export utility functions to global scope if needed
+        window.openModal = openModal;
+        window.closeModal = closeModal;
+    </script>
+</body>
+</html>
